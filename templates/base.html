@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Air Ticket Reservation System{% endblock %}</title>
+    <style>
+        /* =======================================================
+           通用样式 - 天空蓝与白色主题 (无 Emoji)
+           ======================================================= */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6; /* Light gray/off-white background */
+            color: #333;
+        }
+
+        /* 头部导航栏 (Header) */
+        .header {
+            background-color: #007bff; /* Sky Blue - Primary color */
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* 用户信息/登出 */
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        .user-info span {
+            margin-right: 20px;
+            font-size: 16px;
+        }
+        .user-info a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            background-color: #0056b3; /* Darker blue for contrast */
+            transition: background-color 0.3s;
+        }
+        .user-info a:hover {
+            background-color: #003d80;
+        }
+
+        /* 子导航栏 (Role Navigation) */
+        .nav-bar {
+            background-color: #e9f5ff; /* Very light sky blue */
+            padding: 10px 30px;
+            border-bottom: 1px solid #cceeff;
+        }
+        .nav-bar a {
+            color: #007bff;
+            text-decoration: none;
+            margin-right: 25px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-bar a:hover {
+            color: #0056b3;
+        }
+
+        /* 主内容区域 (Container) */
+        .container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 20px auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        h2 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        
+        /* 表格通用样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background-color: #f0f8ff;
+        }
+        
+        /* 状态标记样式 */
+        .status-upcoming { color: #28a745; font-weight: bold; } /* Green */
+        .status-in-progress { color: #ffc107; font-weight: bold; } /* Yellow/Amber */
+        .status-delayed { color: #dc3545; font-weight: bold; } /* Red */
+        .status-cancelled { color: #6c757d; font-weight: bold; } /* Gray */
+        
+        /* 表单通用样式 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #0056b3;
+        }
+        input[type="text"], input[type="password"], input[type="email"], input[type="date"], input[type="number"] {
+            padding: 10px;
+            border: 1px solid #a8c8e6;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button[type="submit"], .btn-primary {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button[type="submit"]:hover, .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        /* 闪存消息 */
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .flash-error, .flash-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+    
+    {% block head_extra %}{% endblock %} 
+</head>
+<body>
+
+    <div class="header">
+        <h1>{% block header_title %}Air Ticket Reservation System{% endblock %}</h1>
+        <div class="user-info">
+            {% if session.get('display_name') %}
+                <span>Logged in as: {{ session.get('display_name') }} ({{ session.get('user_role') | capitalize }})</span>
+                <a href="{{ url_for('auth.logout') }}">Sign Out</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}">Sign In</a>
+                <a href="{{ url_for('auth.register') }}" style="margin-left: 10px; background-color: #28a745;">Register</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="nav-bar">
+        {% if session.get('user_role') == 'customer' %}
+            <a href="{{ url_for('customer.dashboard') }}">Upcoming Flights</a>
+            <a href="{{ url_for('customer.flights') }}">Review All Flights</a>
+            <a href="{{ url_for('customer.search') }}">Search & Buy Tickets</a>
+            <a href="{{ url_for('customer.spending') }}">Review Spending</a>
+        {% elif session.get('user_role') == 'agent' %}
+            <a href="{{ url_for('agent.dashboard') }}">Agent Dashboard</a>
+            <a href="{{ url_for('agent.flights') }}">Filter Purchases</a>
+            <a href="{{ url_for('public.search') }}">Search & Buy Tickets</a>
+            <a href="{{ url_for('agent.analytics') }}">Analytics & Commission</a>
+        {% elif session.get('user_role') == 'staff' %}
+            <a href="{{ url_for('staff.dashboard') }}">Staff Dashboard</a>
+            <a href="{{ url_for('staff.analytics') }}">Analytics & Reports</a>
+            {% if 'admin' in session.get('permissions', []) %}
+                <a href="{{ url_for('staff.admin_management') }}">Admin Management</a>
+            {% endif %}
+        {% else %}
+            <a href="{{ url_for('public.search') }}">Search Flights</a>
+            <a href="{{ url_for('public.status') }}">Flight Status Lookup</a>
+        {% endif %}
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}
+            {% endblock %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Register</h2>
+<form method="post">
+    <label>Role:</label>
+    <select name="role" id="role-select" onchange="onRoleChange()">
+        <option value="customer">Customer</option>
+        <option value="agent">Booking Agent</option>
+        <option value="staff">Airline Staff</option>
+    </select><br>
+
+    <label>Email / Username:</label>
+    <input type="text" name="email_or_username"><br>
+
+    <div id="customer-extra">
+        <label>Customer Name:</label>
+        <input type="text" name="name"><br>
+    </div>
+
+    <div id="staff-extra" style="display:none;">
+        <label>First Name:</label>
+        <input type="text" name="first_name"><br>
+        <label>Last Name:</label>
+        <input type="text" name="last_name"><br>
+        <label>Airline Name:</label>
+        <input type="text" name="airline_name"><br>
+    </div>
+
+    <label>Password:</label>
+    <input type="password" name="password"><br>
+    <label>Confirm Password:</label>
+    <input type="password" name="confirm_password"><br>
+
+    <button type="submit">Register</button>
+</form>
+
+<script>
+function onRoleChange() {
+    var role = document.getElementById("role-select").value;
+    document.getElementById("customer-extra").style.display = (role === "customer") ? "block" : "none";
+    document.getElementById("staff-extra").style.display = (role === "staff") ? "block" : "none";
+}
+</script>
+{% endblock %}

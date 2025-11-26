@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Upcoming Flights</h2>
+<table border="1">
+    <tr>
+        <th>Ticket</th><th>Airline</th><th>Flight</th>
+        <th>From</th><th>To</th><th>Departure</th><th>Status</th>
+    </tr>
+    {% for f in flights %}
+    <tr>
+        <td>{{ f.ticket_ID }}</td>
+        <td>{{ f.airline_name }}</td>
+        <td>{{ f.flight_number }}</td>
+        <td>{{ f.departure_airport }}</td>
+        <td>{{ f.arrival_airport }}</td>
+        <td>{{ f.departure_time }}</td>
+        <td>{{ f.status }}</td>
+    </tr>
+    {% endfor %}
+</table>
+<a href="{{ url_for('customer.flights') }}">Filter My Flights</a> |
+<a href="{{ url_for('customer.search') }}">Search & Purchase</a> |
+<a href="{{ url_for('customer.spending') }}">Spending Stats</a>
+{% endblock %}

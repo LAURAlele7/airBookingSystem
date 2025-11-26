@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Login</h2>
+<form method="post">
+    <label>Role:</label>
+    <select name="role">
+        <option value="customer">Customer</option>
+        <option value="agent">Booking Agent</option>
+        <option value="staff">Airline Staff</option>
+    </select><br>
+
+    <label>Email / Username:</label>
+    <input type="text" name="email_or_username"><br>
+
+    <label>Password:</label>
+    <input type="password" name="password"><br>
+
+    <button type="submit">Login</button>
+</form>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Booking Agent Dashboard{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* 专门针对仪表板结果的样式 */
+    .no-flights {
+        text-align: center;
+        padding: 50px;
+        color: #666;
+        font-style: italic;
+    }
+    
+    /* 注意：大部分表格和状态样式已在 base.html 中定义 */
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <h2>Recent Purchased Flights for Customers</h2>
+    <p>Showing the 20 most recently purchased tickets by you for your customers.</p>
+
+    {% if flights %}
+    <table>
+        <thead>
+            <tr>
+                <th>Ticket ID</th>
+                <th>Customer Email</th>
+                <th>Purchase Date</th>
+                <th>Flight No.</th>
+                <th>Airline</th>
+                <th>Departure</th>
+                <th>Arrival</th>
+                <th>Departure Time</th>
+                <th>Status</th>
+                <th>Price ($)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for flight in flights %}
+            <tr>
+                <td>{{ flight.ticket_ID }}</td>
+                <td>{{ flight.customer_email }}</td>
+                <td>{{ flight.purchase_date | datetimeformat }}</td>
+                <td>{{ flight.flight_number }}</td>
+                <td>{{ flight.airline_name }}</td>
+                <td>{{ flight.departure_airport }}</td>
+                <td>{{ flight.arrival_airport }}</td>
+                <td>{{ flight.departure_time | datetimeformat }}</td>
+                <td>
+                    <span class="status-{{ flight.status | lower | replace(' ', '-') }}">
+                        {{ flight.status }}
+                    </span>
+                </td>
+                <td>{{ "{:,.2f}".format(flight.price) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="no-flights">
+        No recent flight purchases found. Start booking tickets for your customers!
+    </p>
+    {% endif %}
+
+    {% endblock %}

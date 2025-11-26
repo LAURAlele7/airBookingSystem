@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Agent - Filter Purchased Flights{% endblock %}
+
+{% block header_title %}Agent Flight Search and Filter{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* 覆盖或添加 search-form 的样式 */
+    .search-form {
+        background-color: #f0f8ff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        border: 1px solid #cceeff;
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    /* 确保输入框宽度合适 */
+    .search-form input[type="date"],
+    .search-form input[type="text"] {
+        width: 180px;
+    }
+    .no-results {
+        text-align: center;
+        padding: 50px;
+        color: #666;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <h2>View Purchased Flights</h2>
+
+    <form class="search-form" method="POST" action="{{ url_for('agent.flights') }}">
+        
+        <div class="form-group">
+            <label for="start_date">Purchase Start Date</label>
+            <input type="date" id="start_date" name="start_date" value="{{ request.form.get('start_date', '') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="end_date">Purchase End Date</label>
+            <input type="date" id="end_date" name="end_date" value="{{ request.form.get('end_date', '') }}">
+        </div>
+        
+        <div class="form-group">
+            <label for="origin">Origin Airport (e.g., JFK)</label>
+            <input type="text" id="origin" name="origin" value="{{ request.form.get('origin', '') }}" placeholder="Airport Code">
+        </div>
+
+        <div class="form-group">
+            <label for="destination">Destination Airport (e.g., LAX)</label>
+            <input type="text" id="destination" name="destination" value="{{ request.form.get('destination', '') }}" placeholder="Airport Code">
+        </div>
+
+        <button type="submit">Filter Flights</button>
+    </form>
+
+    {% if flights %}
+    <h3>Search Results: {{ flights | length }} tickets found</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Ticket ID</th>
+                <th>Customer Email</th>
+                <th>Purchase Date</th>
+                <th>Flight No.</th>
+                <th>Airline</th>
+                <th>Origin (Airport)</th>
+                <th>Destination (Airport)</th>
+                <th>Departure Time</th>
+                <th>Arrival Time</th>
+                <th>Flight Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for flight in flights %}
+            <tr>
+                <td>{{ flight.ticket_ID }}</td>
+                <td>{{ flight.customer_email }}</td>
+                <td>{{ flight.purchase_date | datetimeformat }}</td>
+                <td>{{ flight.flight_number }}</td>
+                <td>{{ flight.airline_name }}</td>
+                <td>{{ flight.departure_airport }}</td>
+                <td>{{ flight.arrival_airport }}</td>
+                <td>{{ flight.departure_time | datetimeformat }}</td>
+                <td>{{ flight.arrival_time | datetimeformat }}</td>
+                <td>
+                    <span class="status-{{ flight.status | lower | replace(' ', '-') }}">
+                        {{ flight.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% elif request.method == "POST" %}
+    <p class="no-results">
+        No flights found matching the specified filters.
+    </p>
+    {% else %}
+    <p class="no-results">
+        Use the form above to filter purchased flights by date range or route.
+    </p>
+    {% endif %}
+{% endblock %}

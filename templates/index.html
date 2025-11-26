@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Welcome to Air Booking System</h2>
+
+<h3>Public Flight Search</h3>
+<form method="post" action="{{ url_for('public.search') }}">
+    <label>Origin (airport/city/alias):</label>
+    <input type="text" name="origin">
+    <label>Destination (airport/city/alias):</label>
+    <input type="text" name="destination">
+    <label>Date:</label>
+    <input type="date" name="date">
+    <button type="submit">Search</button>
+</form>
+
+{% if flights %}
+<table border="1">
+    <tr>
+        <th>Airline</th><th>Flight No</th><th>From</th><th>To</th>
+        <th>Departure</th><th>Arrival</th><th>Status</th><th>Price</th>
+    </tr>
+    {% for f in flights %}
+    <tr>
+        <td>{{ f.airline_name }}</td>
+        <td>{{ f.flight_number }}</td>
+        <td>{{ f.departure_airport }}</td>
+        <td>{{ f.arrival_airport }}</td>
+        <td>{{ f.departure_time }}</td>
+        <td>{{ f.arrival_time }}</td>
+        <td>{{ f.status }}</td>
+        <td>{{ f.price }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+<h3>Check In-Progress Flight Status</h3>
+<form method="post" action="{{ url_for('public.status') }}">
+    <label>Airline:</label>
+    <input type="text" name="airline_name">
+    <label>Flight No:</label>
+    <input type="text" name="flight_number">
+    <button type="submit">Check</button>
+</form>
+
+{% if status_flight %}
+<p>Status: {{ status_flight.status }} | Departure: {{ status_flight.departure_time }} | Arrival: {{ status_flight.arrival_time }}</p>
+{% endif %}
+
+{% endblock %}

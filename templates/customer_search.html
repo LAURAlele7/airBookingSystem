@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Search Flights</h2>
+<form method="post">
+    <label>Origin:</label><input type="text" name="origin">
+    <label>Destination:</label><input type="text" name="destination">
+    <label>Date:</label><input type="date" name="date">
+    <button type="submit">Search</button>
+</form>
+
+{% if flights %}
+<h3>Results</h3>
+<table border="1">
+    <tr>
+        <th>Airline</th><th>Flight</th><th>From</th><th>To</th><th>Departure</th><th>Price</th><th>Action</th>
+    </tr>
+    {% for f in flights %}
+    <tr>
+        <td>{{ f.airline_name }}</td>
+        <td>{{ f.flight_number }}</td>
+        <td>{{ f.departure_airport }}</td>
+        <td>{{ f.arrival_airport }}</td>
+        <td>{{ f.departure_time }}</td>
+        <td>{{ f.price }}</td>
+        <td>
+            <form method="post" action="{{ url_for('customer.purchase') }}">
+                <input type="hidden" name="airline_name" value="{{ f.airline_name }}">
+                <input type="hidden" name="flight_number" value="{{ f.flight_number }}">
+                <button type="submit">Purchase</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+{% endblock %}
