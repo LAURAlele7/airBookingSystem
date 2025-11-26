@@ -48,6 +48,7 @@ CREATE TABLE flight(
     price   numeric(12,2) check (price >= 0),
     status  varchar(11) NOT NULL,
     airplane_assigned  varchar(20) NOT NULL,
+    remaining_seats   int NOT NULL,
     primary key(flight_number, airline_name),
     foreign key(airline_name) references airline(name) ON DELETE CASCADE ON UPDATE CASCADE,
     foreign key(departure_airport) references airport(name) ON UPDATE CASCADE,
@@ -146,12 +147,12 @@ INSERT INTO airplane VALUES("N54321", "Southwest", 150);
 INSERT INTO airplane VALUES("N67890", "Delta", 200);
 INSERT INTO airplane VALUES("N11223", "United", 250);
 -- inserting flights
-INSERT INTO flight VALUES("DL1001", "Delta", "JFK", "LAX", "2025-09-01 08:00", "2025-09-01 11:00", 300.00, "in-progress", "N12345");
-INSERT INTO flight VALUES("UA2001", "United", "LAX", "ORD", "2025-09-02 09:00", "2025-09-02 15:00", 250.00, "Delayed", "N67890");
-INSERT INTO flight VALUES("SW3001", "Southwest", "PVG", "ATL", "2025-09-03 12:00", "2025-09-03 15:00", 700.00, "upcoming", "N54321");
-INSERT INTO flight VALUES("DL1002", "Delta", "ATL", "JFK", "2025-09-04 14:00", "2025-09-04 17:00", 280.00, "Delayed", "N67890");
-INSERT INTO flight VALUES("UA2002", "United", "JFK", "SFO", "2025-09-05 10:00", "2025-09-05 14:00", 320.00, "upcoming", "N11223");
-INSERT INTO flight VALUES("DL1003", "Delta", "SFO", "JFK", "2025-10-15 12:00", "2025-10-16 16:00", 330.00, "upcoming", "N12345");
+INSERT INTO flight VALUES("DL1001", "Delta", "JFK", "LAX", "2025-09-01 08:00", "2025-09-01 11:00", 300.00, "in-progress", "N12345",180);
+INSERT INTO flight VALUES("UA2001", "United", "LAX", "ORD", "2025-09-02 09:00", "2025-09-02 15:00", 250.00, "Delayed", "N67890", 200);
+INSERT INTO flight VALUES("SW3001", "Southwest", "PVG", "ATL", "2025-09-03 12:00", "2025-09-03 15:00", 700.00, "upcoming", "N54321", 180);
+INSERT INTO flight VALUES("DL1002", "Delta", "ATL", "JFK", "2025-09-04 14:00", "2025-09-04 17:00", 280.00, "Delayed", "N67890", 150);
+INSERT INTO flight VALUES("UA2002", "United", "JFK", "SFO", "2025-09-05 10:00", "2025-09-05 14:00", 320.00, "upcoming", "N11223", 220);
+INSERT INTO flight VALUES("DL1003", "Delta", "SFO", "JFK", "2025-10-15 12:00", "2025-10-16 16:00", 330.00, "upcoming", "N12345", 250);
 -- inserting tickets
 INSERT INTO ticket VALUES("1111222233334444", 300.00, "Confirmed", "Delta", "DL1001");
 INSERT INTO ticket VALUES("5555666677778888", 250.00, "Pending", "United", "UA2001");
