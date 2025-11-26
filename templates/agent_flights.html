@@ -16,13 +16,22 @@
         display: flex;
         gap: 15px;
         flex-wrap: wrap;
-        align-items: flex-end;
+        align-items: flex-end; /* 确保所有子元素底部对齐 */
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        flex: 1; /* 让所有表单组平均分配空间 */
+        min-width: 150px; /* 设置最小宽度防止过小 */
+        justify-content: flex-end;
     }
     /* 确保输入框宽度合适 */
     .search-form input[type="date"],
     .search-form input[type="text"] {
-        width: 180px;
+        width: 100%; /* 使用100%宽度填充容器 */
+        box-sizing: border-box; /* 包含padding和border在宽度内 */
     }
+    
     .no-results {
         text-align: center;
         padding: 50px;
@@ -57,7 +66,10 @@
             <input type="text" id="destination" name="destination" value="{{ request.form.get('destination', '') }}" placeholder="Airport Code">
         </div>
 
-        <button type="submit">Filter Flights</button>
+        <div class="form-group button-group">
+            <label style="visibility: hidden;">Action</label> 
+            <button type="submit">Filter Flights</button>
+        </div>
     </form>
 
     {% if flights %}

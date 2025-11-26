@@ -61,7 +61,6 @@ def create_app():
         else:
             return render_template("index.html")
 
-    # 示例：通用 dashboard 路由（如果老师一定要求这个形式）
     @app.route("/dashboard")
     @login_required()
     def dashboard():
@@ -79,5 +78,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    # 在 XAMPP / Windows 下开发用这个就好
     app.run(host="127.0.0.1", port=5000, debug=True)

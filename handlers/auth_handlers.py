@@ -24,7 +24,6 @@ def register():
         if password != confirm:
             flash("Passwords do not match.")
             return render_template("register.html")
-        print(f"DEBUG: Password being hashed is: '{password}'")
         password_hash = generate_password_hash(password, method="pbkdf2:sha256:200000")
 
         try:
@@ -51,8 +50,6 @@ def register():
                     """,
                     (email_or_username, password_hash, name),
                 )
-                print("DEBUG REGISTER password =", request.form.get("password"))
-                print("DEBUG REGISTER confirm =", request.form.get("confirm_password"))
 
             elif role == "agent":
                 existing = query_one("SELECT * FROM booking_agent WHERE email=%s", (email_or_username,))
@@ -122,13 +119,7 @@ def login():
         try:
             if role == "customer":
                 user = query_one("SELECT * FROM customer WHERE email=%s", (email_or_username,))
-                # print("LOGIN ROLE =", role)
-                # print("LOGIN INPUT =", email_or_username)
-                # print("USER ROW FROM DB =", user)
-                # print("DB password =", user["password"])
-                # print("Entered password =", password)
-                # print("Hash check =", check_password_hash(user["password"], password))
-
+            
                 if user:
                     display_name = user.get("name", user["email"])
             elif role == "agent":
