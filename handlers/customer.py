@@ -17,10 +17,11 @@ def dashboard():
         FROM purchases p
         JOIN ticket t ON p.ticket_ID = t.ticket_ID
         JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-        WHERE p.customer_email=%s AND f.departure_time >= NOW()
+        WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed')
         ORDER BY f.departure_time ASC
     """
     flights = query_all(sql, (email,))
+    print(flights)
     return render_template("customer_dashboard.html", flights=flights)
 
 

@@ -1,24 +1,68 @@
 {% extends "base.html" %}
+
+{% block title %}Customer Dashboard{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* 简单的样式优化 */
+    .dashboard-container {
+        padding: 20px;
+    }
+    .flight-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .flight-table th, .flight-table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+    }
+    .flight-table th {
+        background-color: #007bff;
+        color: white;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>Upcoming Flights</h2>
-<table border="1">
-    <tr>
-        <th>Ticket</th><th>Airline</th><th>Flight</th>
-        <th>From</th><th>To</th><th>Departure</th><th>Status</th>
-    </tr>
-    {% for f in flights %}
-    <tr>
-        <td>{{ f.ticket_ID }}</td>
-        <td>{{ f.airline_name }}</td>
-        <td>{{ f.flight_number }}</td>
-        <td>{{ f.departure_airport }}</td>
-        <td>{{ f.arrival_airport }}</td>
-        <td>{{ f.departure_time }}</td>
-        <td>{{ f.status }}</td>
-    </tr>
-    {% endfor %}
-</table>
-<a href="{{ url_for('customer.flights') }}">Filter My Flights</a> |
-<a href="{{ url_for('customer.search') }}">Search & Purchase</a> |
-<a href="{{ url_for('customer.spending') }}">Spending Stats</a>
+<div class="dashboard-container">
+    <h2>Upcoming Flights</h2>
+    
+    {% if flights %}
+    <table class="flight-table">
+        <thead>
+            <tr>
+                <th>Ticket ID</th>
+                <th>Airline</th>
+                <th>Flight No.</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Departure Time</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in flights %}
+            <tr>
+                <td>{{ f.ticket_ID }}</td>
+                <td>{{ f.airline_name }}</td>
+                <td>{{ f.flight_number }}</td>
+                <td>{{ f.departure_airport }}</td>
+                <td>{{ f.arrival_airport }}</td>
+                <td>{{ f.departure_time | datetimeformat }}</td> <td>
+                    <span class="status-{{ f.status | lower | replace(' ', '-') }}">
+                        {{ f.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>You have no upcoming or delayed flights scheduled.</p>
+    {% endif %}
+
+    </div>
 {% endblock %}
