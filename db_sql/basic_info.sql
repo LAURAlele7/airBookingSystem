@@ -68,13 +68,13 @@ CREATE TABLE ticket(
 
 CREATE TABLE booking_agent(
     email   varchar(50),
-    password    varchar(100) NOT NULL,
+    password    varchar(255) NOT NULL,
     primary key(email)
 );
 
 CREATE TABLE staff(
     username    varchar(30),
-    password    varchar(100) NOT NULL,
+    password    varchar(255) NOT NULL,
     first_name   varchar(20) NOT NULL,
     last_name    varchar(20) NOT NULL,
     date_of_birth   date NOT NULL,
