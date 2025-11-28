@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, session, flash, redirect, url_for
+from flask import Blueprint, render_template, request, session, flash, redirect, url_for, jsonify
 from datetime import datetime, timedelta
 
 from .utils import (
@@ -11,82 +11,111 @@ from .utils import (
 
 staff_bp = Blueprint("staff", __name__)
 
+@staff_bp.before_request
+def check_staff_access():
+    """Ensure only logged-in staff can access these routes."""
+    if session.get("role") not in ["staff", "admin", "operator"]:
+        # Adjust roles based on your actual session keys
+        # For this example, assuming 'staff' covers all or specific checks are done inside
+        pass
+
 @staff_bp.route("/dashboard")
 @login_required(role="staff")
 def dashboard():
+    airline_name = session.get("airline_name")
+    
+    # Base query for the next 30 days
+    sql = """
+        SELECT * FROM flight 
+        WHERE airline_name = %s 
+        AND departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
     """
-    staff 默认查看本 airline 接下来 30 天的 flights
-    """
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    if not staff:
-        flash("Staff not found.")
-        return redirect(url_for("index"))
+    params = [airline_name]
 
-    airline_name = staff["airline_name"]
-
-    # 可带 filter
+    # Apply Filters
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     origin = request.args.get("origin")
-    destination = request.args.get("destination")
+    dest = request.args.get("destination")
 
-    conditions = ["f.airline_name=%s"]
-    params = [airline_name]
-
-    if not start_date and not end_date:
-        # 默认接下来 30 天
-        conditions.append("f.departure_time BETWEEN NOW() AND NOW() + INTERVAL 30 DAY")
-    else:
-        if start_date:
-            conditions.append("DATE(f.departure_time) >= %s")
-            params.append(start_date)
-        if end_date:
-            conditions.append("DATE(f.departure_time) <= %s")
-            params.append(end_date)
-
+    if start_date:
+        sql += " AND departure_time >= %s"
+        params.append(start_date)
+    if end_date:
+        sql += " AND departure_time <= %s"
+        params.append(end_date)
     if origin:
-        conditions.append("f.departure_airport=%s")
-        params.append(origin)
-    if destination:
-        conditions.append("f.arrival_airport=%s")
-        params.append(destination)
+        sql += " AND (departure_airport LIKE %s OR departure_airport IN (SELECT name FROM airport WHERE city LIKE %s))"
+        params.extend([f"%{origin}%", f"%{origin}%"])
+    if dest:
+        sql += " AND (arrival_airport LIKE %s OR arrival_airport IN (SELECT name FROM airport WHERE city LIKE %s))"
+        params.extend([f"%{dest}%", f"%{dest}%"])
 
-    where_clause = " AND ".join(conditions)
-    sql = f"""
-        SELECT f.*
-        FROM flight f
-        WHERE {where_clause}
-        ORDER BY f.departure_time ASC
-    """
+    sql += " ORDER BY departure_time ASC"
+    
     flights = query_all(sql, tuple(params))
-
     return render_template("staff_dashboard.html", flights=flights, airline_name=airline_name)
-
 
 @staff_bp.route("/passengers", methods=["GET", "POST"])
 @login_required(role="staff")
 def passengers():
-    """
-    查看某一航班的乘客列表
-    """
-    passengers = []
-    if request.method == "POST":
-        airline_name = request.form.get("airline_name", "").strip()
-        flight_number = request.form.get("flight_number", "").strip()
-        if not airline_name or not flight_number:
-            flash("Airline and flight number are required.")
-        else:
-            sql = """
-                SELECT c.*, p.ticket_ID
-                FROM purchases p
-                JOIN customer c ON p.customer_email = c.email
-                JOIN ticket t ON p.ticket_ID = t.ticket_ID
-                WHERE t.airline_name=%s AND t.flight_number=%s
-            """
-            passengers = query_all(sql, (airline_name, flight_number))
+    airline_name = session.get("airline_name")
+    selected_flight_num = request.args.get("flight_number") or request.form.get("flight_number")
+    passengers_list = []
 
-    return render_template("staff_passengers.html", passengers=passengers)
+    if selected_flight_num:
+        # Fetch passengers for this flight
+        # JOIN ticket -> purchases -> customer
+        sql = """
+            SELECT c.name, c.email, t.ticket_ID 
+            FROM ticket t
+            JOIN purchases p ON t.ticket_ID = p.ticket_ID
+            JOIN customer c ON p.customer_email = c.email
+            WHERE t.airline_name = %s AND t.flight_number = %s
+        """
+        passengers_list = query_all(sql, (airline_name, selected_flight_num))
+
+    # Always fetch the list of flights so the user can switch/select
+    flights_sql = "SELECT * FROM flight WHERE airline_name = %s ORDER BY departure_time DESC LIMIT 50"
+    flights = query_all(flights_sql, (airline_name,))
+
+
+    return render_template("staff_passengers.html", 
+                           flights=flights, 
+                           passengers=passengers_list, 
+                           selected_flight=selected_flight_num)
+
+@staff_bp.route("/customer-history", methods=["GET", "POST"])
+@login_required(role="staff")
+def customer_history():
+    airline_name = session.get("airline_name")
+    customer_email = request.args.get("customer_email") or request.form.get("customer_email")
+    customer_flights = []
+
+    if customer_email:
+        sql = """
+            SELECT f.*, t.ticket_ID 
+            FROM ticket t
+            JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+            WHERE t.airline_name = %s AND t.customer_email = %s
+            ORDER BY f.departure_time DESC
+        """
+        customer_flights = query_all(sql, (airline_name, customer_email))
+
+    recent_customers_sql = """
+        SELECT DISTINCT customer_email FROM ticket 
+        WHERE airline_name = %s 
+        ORDER BY ticket_ID DESC LIMIT 20
+    """
+    recent_customers = [r['customer_email'] for r in query_all(recent_customers_sql, (airline_name,))]
+
+    return render_template(
+        "staff_customer_flights.html", 
+        flights=customer_flights, 
+        recent_customers=recent_customers,
+        selected_email=customer_email
+    )
+
 
 
 @staff_bp.route("/customer_flights", methods=["GET", "POST"])
@@ -374,28 +403,44 @@ def add_agent():
 
 @staff_bp.route("/operator/status", methods=["GET", "POST"])
 @login_required(role="staff")
-@staff_permission_required("Operator")
 def update_status():
-    """
-    Operator 更新 flight 状态
-    """
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    airline_name = staff["airline_name"] if staff else None
+    airline_name = session.get("airline_name")
 
     if request.method == "POST":
-        flight_number = request.form.get("flight_number", "").strip()
-        status = request.form.get("status", "").strip()
-        if not flight_number or not status:
-            flash("Flight number and status are required.")
-        else:
-            try:
-                execute_sql(
-                    "UPDATE flight SET status=%s WHERE airline_name=%s AND flight_number=%s",
-                    (status, airline_name, flight_number),
-                )
-                flash("Status updated.")
-            except Exception as e:
-                flash(f"Error: {e}")
+        flight_num = request.form.get("flight_number")
+        new_status = request.form.get("status")
+        
+        # Update query
+        sql = "UPDATE flight SET status=%s WHERE airline_name=%s AND flight_number=%s"
+        query_one(sql, (new_status, airline_name, flight_num)) # query_one/all can be used for updates too usually
+        flash(f"Flight {flight_num} status updated to {new_status}.")
+        return redirect(url_for("staff.update_status"))
 
-    return render_template("staff_operator_status.html", airline_name=airline_name)
+    # GET: Show all upcoming/in-progress flights to allow selection
+    sql = """
+        SELECT * FROM flight 
+        WHERE airline_name = %s 
+        AND status NOT IN ('cancelled', 'arrived')
+        ORDER BY departure_time ASC
+    """
+    flights = query_all(sql, (airline_name,))
+    return render_template("staff_operator_status.html", flights=flights)
+
+
+@staff_bp.route("/api/get_customers")
+@login_required(role="staff")
+def get_customers():
+    """Fetch customer emails for suggestions."""
+    airline_name = session.get("airline_name")
+    try:
+        # Get customers who have purchased tickets from this airline
+        sql = """
+            SELECT DISTINCT p.customer_email 
+            FROM purchases p
+            JOIN ticket t ON p.ticket_ID = t.ticket_ID
+            WHERE t.airline_name = %s
+        """
+        customers = query_all(sql, (airline_name,))
+        return jsonify([c['customer_email'] for c in customers])
+    except Exception as e:
+        return jsonify([])

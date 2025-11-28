@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 20px; max-width: 500px; margin: 0 auto;">
+    <h3>Authorize Booking Agent</h3>
+    <a href="{{ url_for('staff.dashboard') }}">Back</a>
+    <form method="post" style="margin-top: 15px;">
+        <label>Agent Email:</label><br>
+        <input type="email" name="agent_email" required><br><br>
+        <button type="submit">Authorize</button>
+    </form>
+</div>
+{% endblock %}

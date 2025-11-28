@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Update Flight Status{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h3>Update Flight Status</h3>
+    <a href="{{ url_for('staff.dashboard') }}">&larr; Back to Dashboard</a>
+    <hr>
+
+    <!-- Dynamic Filter Input -->
+    <input type="text" id="flightSearch" onkeyup="filterTable()" placeholder="Type Flight No, Origin, or Destination to filter..." 
+           style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px;">
+
+    <table class="flight-table" id="statusTable" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f1f1f1; text-align: left;">
+                <th style="padding: 10px; border: 1px solid #ddd;">Flight No</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Route</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Departure</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Current Status</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in flights %}
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ f.flight_number }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ f.departure_time }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">
+                    <span class="status-badge {{ f.status }}">{{ f.status }}</span>
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">
+                    <form method="post" style="display: flex; gap: 5px;">
+                        <input type="hidden" name="flight_number" value="{{ f.flight_number }}">
+                        <select name="status" style="padding: 5px;">
+                            <option value="on-time" {% if f.status == 'on-time' %}selected{% endif %}>On-time</option>
+                            <option value="delayed" {% if f.status == 'delayed' %}selected{% endif %}>Delayed</option>
+                            <option value="cancelled" {% if f.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            <option value="arrived" {% if f.status == 'arrived' %}selected{% endif %}>Arrived</option>
+                            <option value="upcoming" {% if f.status == 'upcoming' %}selected{% endif %}>Upcoming</option>
+                        </select>
+                        <button type="submit" style="background: #28a745; color: white; border: none; padding: 5px 10px; cursor: pointer;">Update</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function filterTable() {
+    var input, filter, table, tr, td, i, txtValue;
+    input = document.getElementById("flightSearch");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("statusTable");
+    tr = table.getElementsByTagName("tr");
+
+    for (i = 1; i < tr.length; i++) {
+        // Search in Flight No (0) and Route (1)
+        var tdFlight = tr[i].getElementsByTagName("td")[0];
+        var tdRoute = tr[i].getElementsByTagName("td")[1];
+        
+        if (tdFlight || tdRoute) {
+            var txtFlight = tdFlight.textContent || tdFlight.innerText;
+            var txtRoute = tdRoute.textContent || tdRoute.innerText;
+            
+            if (txtFlight.toUpperCase().indexOf(filter) > -1 || txtRoute.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }       
+    }
+}
+</script>
+{% endblock %}

@@ -130,9 +130,12 @@ def login():
                 user = query_one("SELECT * FROM staff WHERE username=%s", (email_or_username,))
                 if user:
                     display_name = f"{user['first_name']} {user['last_name']}"
-                    # 读取权限
+
+                    # staff-specific: load permissions
                     perms_rows = query_one_permissions(email_or_username)
                     permissions = perms_rows
+
+                    session["airline_name"] = user["airline_name"]
             else:
                 flash("Invalid role.")
                 return render_template("login.html")
@@ -155,6 +158,9 @@ def login():
             session["display_name"] = display_name
             if permissions:
                 session["permissions"] = permissions
+
+            if role == "staff":
+                session["airline_name"] = user["airline_name"]
 
             flash("Login success.")
             if role == "customer":

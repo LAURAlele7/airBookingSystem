@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Customer Flight History{% endblock %}
+
+{% block head_extra %}
+<style>
+    .suggestion-box {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 5px;
+        margin-bottom: 15px;
+    }
+    .chip {
+        background-color: #e0e0e0;
+        padding: 5px 10px;
+        border-radius: 16px;
+        font-size: 0.85em;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .chip:hover {
+        background-color: #d0d0d0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 20px; max-width: 900px; margin: 0 auto;">
+    <h3>Customer Flight History ({{ airline_name }})</h3>
+    <a href="{{ url_for('staff.dashboard') }}">&larr; Back to Dashboard</a>
+    <hr>
+
+    <form method="post" id="searchForm" style="margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px;">
+        <div style="margin-bottom: 10px;">
+            <label style="font-weight: bold;">Customer Email:</label>
+            <input type="email" id="customerEmailInput" name="customer_email" 
+                   value="{{ selected_email if selected_email else '' }}"
+                   required placeholder="Start typing or select below..." 
+                   style="width: 100%; padding: 8px; margin-top: 5px;" autocomplete="off">
+        </div>
+        
+        <!-- Dynamic Suggestions Area -->
+        <div id="customerSuggestions" class="suggestion-box">
+            <!-- Chips will be loaded here -->
+            <span style="color: #777; font-size: 0.9em;">Loading customers...</span>
+        </div>
+
+        <button type="submit" style="background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Search History</button>
+    </form>
+
+    {% if flights %}
+    <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <tr style="background: #007bff; color: white;">
+            <th style="padding: 10px;">Flight No</th>
+            <th style="padding: 10px;">Route</th>
+            <th style="padding: 10px;">Date</th>
+            <th style="padding: 10px;">Ticket ID</th>
+        </tr>
+        {% for f in flights %}
+        <tr>
+            <td style="padding: 10px;">{{ f.flight_number }}</td>
+            <td style="padding: 10px;">{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</td>
+            <td style="padding: 10px;">{{ f.departure_time }}</td>
+            <td style="padding: 10px;">{{ f.ticket_ID }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% elif request.method == 'POST' %}
+    <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; border-radius: 4px;">
+        No flights found for this customer on this airline.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('customerEmailInput');
+    const suggestionsBox = document.getElementById('customerSuggestions');
+    let allCustomers = [];
+
+    // 1. Fetch all customers for this airline
+    fetch("{{ url_for('staff.get_customers') }}")
+        .then(response => response.json())
+        .then(data => {
+            allCustomers = data;
+            renderSuggestions(allCustomers.slice(0, 10)); // Show first 10 initially
+        })
+        .catch(err => {
+            suggestionsBox.innerHTML = '<span style="color: red;">Error loading customers</span>';
+            console.error(err);
+        });
+
+    // 2. Filter suggestions as user types
+    input.addEventListener('input', function() {
+        const val = this.value.toLowerCase();
+        const filtered = allCustomers.filter(email => email.toLowerCase().includes(val));
+        renderSuggestions(filtered.slice(0, 10)); // Limit to 10 suggestions
+    });
+
+    // Helper to render chips
+    function renderSuggestions(list) {
+        suggestionsBox.innerHTML = '';
+        if (list.length === 0) {
+            suggestionsBox.innerHTML = '<span style="color: #777; font-size: 0.9em;">No matching customers found</span>';
+            return;
+        }
+        
+        list.forEach(email => {
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.textContent = email;
+            chip.onclick = function() {
+                input.value = email;
+                // Optional: Auto-submit
+                // document.getElementById('searchForm').submit();
+            };
+            suggestionsBox.appendChild(chip);
+        });
+    }
+});
+</script>
+{% endblock %}

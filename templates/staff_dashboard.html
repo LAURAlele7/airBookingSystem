@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Dashboard - {{ airline_name }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .dashboard-container { padding: 20px; }
+    
+    /* Action Bar for Staff Navigation */
+    .staff-actions {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .btn-action {
+        text-decoration: none;
+        padding: 8px 15px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+    .btn-action.admin { background-color: #dc3545; } /* Red for Admin */
+    .btn-action.operator { background-color: #28a745; } /* Green for Operator */
+    .btn-action:hover { opacity: 0.9; }
+
+    /* Filter Form */
+    .filter-form {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        margin-bottom: 20px;
+        background: #fff;
+        padding: 15px;
+        border: 1px solid #eee;
+    }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-size: 0.85em; font-weight: bold; margin-bottom: 3px; }
+    .form-group input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+
+    /* Table Styles (Consistent with Customer) */
+    .flight-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    .flight-table th, .flight-table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+    }
+    .flight-table th {
+        background-color: #007bff;
+        color: white;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h2>{{ airline_name }} Staff Dashboard</h2>
+
+    <!-- Navigation Menu for Staff Functions -->
+    <div class="staff-actions">
+        <strong>Menu:</strong>
+        <a href="{{ url_for('staff.passengers') }}" class="btn-action">View Passengers</a>
+        <a href="{{ url_for('staff.customer_flights') }}" class="btn-action">Customer History</a>
+        <a href="{{ url_for('staff.analytics') }}" class="btn-action">Analytics</a>
+        
+        <!-- Operator Actions -->
+        <a href="{{ url_for('staff.update_status') }}" class="btn-action operator">Update Flight Status</a>
+
+        <!-- Admin Actions -->
+        <a href="{{ url_for('staff.add_flight') }}" class="btn-action admin">Create Flight</a>
+        <a href="{{ url_for('staff.add_airport') }}" class="btn-action admin">Add Airport</a>
+        <a href="{{ url_for('staff.add_airplane') }}" class="btn-action admin">Add Airplane</a>
+        <a href="{{ url_for('staff.add_agent') }}" class="btn-action admin">Add Agent</a>
+    </div>
+
+    <!-- Filter Form -->
+    <form method="get" action="{{ url_for('staff.dashboard') }}" class="filter-form">
+        <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" name="start_date" value="{{ request.args.get('start_date', '') }}">
+        </div>
+        <div class="form-group">
+            <label>End Date</label>
+            <input type="date" name="end_date" value="{{ request.args.get('end_date', '') }}">
+        </div>
+        <div class="form-group">
+            <label>Origin (Airport/City)</label>
+            <input type="text" name="origin" placeholder="JFK" value="{{ request.args.get('origin', '') }}">
+        </div>
+        <div class="form-group">
+            <label>Destination</label>
+            <input type="text" name="destination" placeholder="PVG" value="{{ request.args.get('destination', '') }}">
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn-action" style="background-color: #6c757d;">Filter</button>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <a href="{{ url_for('staff.dashboard') }}" style="margin-left: 10px; color: #666; font-size: 0.9em; padding-top: 8px;">Reset</a>
+        </div>
+    </form>
+
+    <!-- Flights Table -->
+    <h3>Scheduled Flights</h3>
+    {% if flights %}
+    <table class="flight-table">
+        <thead>
+            <tr>
+                <th>Flight No.</th>
+                <th>Airplane ID</th>
+                <th>Origin</th>
+                <th>Destination</th>
+                <th>Departure</th>
+                <th>Arrival</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in flights %}
+            <tr>
+                <td>{{ f.flight_number }}</td>
+                <td>{{ f.airplane_assigned }}</td>
+                <td>{{ f.departure_airport }}</td>
+                <td>{{ f.arrival_airport }}</td>
+                <td>{{ f.departure_time | datetimeformat }}</td>
+                <td>{{ f.arrival_time | datetimeformat }}</td>
+                <td>{{ f.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No flights found for the selected criteria.</p>
+    {% endif %}
+</div>
+{% endblock %}

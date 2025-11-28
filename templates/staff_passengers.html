@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}View Passengers{% endblock %}
+
+{% block head_extra %}
+<style>
+    .flight-row {
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        transition: background-color 0.2s;
+    }
+    .flight-row:hover {
+        background-color: #f5f5f5;
+    }
+    /* This class handles the blue background for the selected item */
+    .flight-row.active {
+        background-color: #e3f2fd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h3>View Passengers</h3>
+    <a href="{{ url_for('staff.dashboard') }}">&larr; Back</a>
+    <hr>
+
+    <div style="display: flex; gap: 20px;">
+        <!-- LEFT: Flight List -->
+        <div style="flex: 1;">
+            <h4>Select a Flight</h4>
+            <input type="text" id="flightSearch" onkeyup="filterFlights()" placeholder="Filter flights..." 
+                   style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            
+            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd;">
+                <table id="flightTable" style="width: 100%; border-collapse: collapse;">
+                {% for f in flights %}
+                <!-- We use Jinja to add the 'active' class if this is the selected flight -->
+                <tr class="flight-row {% if f.flight_number|string == selected_flight|string %}active{% endif %}" 
+                    onclick="window.location.href='{{ url_for('staff.passengers', flight_number=f.flight_number) }}'">
+                    
+                    <td style="padding: 10px;">
+                        <strong>Flight {{ f.flight_number }}</strong><br>
+                        <small>{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</small><br>
+                        <small style="color: #666;">{{ f.departure_time }}</small>
+                    </td>
+                    <td style="padding: 10px; text-align: right;">
+                        <span style="color: blue;">View &rarr;</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            </div>
+        </div>
+
+        <!-- RIGHT: Passenger List -->
+        <div style="flex: 2; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+            {% if selected_flight %}
+                <h4>Passengers for Flight {{ selected_flight }}</h4>
+                {% if passengers %}
+                    <table style="width: 100%; border-collapse: collapse; background: white;">
+                        <tr style="background: #eee; text-align: left;">
+                            <th style="padding: 8px;">Name</th>
+                            <th style="padding: 8px;">Email</th>
+                            <th style="padding: 8px;">Ticket ID</th>
+                        </tr>
+                        {% for p in passengers %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 8px;">{{ p.name }}</td>
+                            <td style="padding: 8px;">{{ p.email }}</td>
+                            <td style="padding: 8px;">{{ p.ticket_ID }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                {% else %}
+                    <p>No passengers found for this flight.</p>
+                {% endif %}
+            {% else %}
+                <p style="color: #777; margin-top: 50px; text-align: center;">&larr; Please select a flight from the list to view passengers.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function filterFlights() {
+    var input, filter, table, tr, td, i, txtValue;
+    input = document.getElementById("flightSearch");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("flightTable");
+    tr = table.getElementsByTagName("tr");
+    for (i = 0; i < tr.length; i++) {
+        td = tr[i].getElementsByTagName("td")[0];
+        if (td) {
+            txtValue = td.textContent || td.innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

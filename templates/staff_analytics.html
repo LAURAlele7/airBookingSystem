@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Airline Analytics{% endblock %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>Analytics for {{ airline_name }}</h2>
+    <a href="{{ url_for('staff.dashboard') }}">&larr; Back to Dashboard</a>
+    <hr>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        
+        <!-- 1. Top Agents -->
+        <div style="border: 1px solid #ccc; padding: 15px;">
+            <h4>Top 5 Agents (Last Month)</h4>
+            <ul>
+                {% for a in top_agent_month %}
+                <li>{{ a.agent_email }} - {{ a.ticket_count }} tickets (${{ a.commission }} comm)</li>
+                {% else %}<li>No data</li>{% endfor %}
+            </ul>
+            <h4>Top 5 Agents (Last Year)</h4>
+            <ul>
+                {% for a in top_agent_year %}
+                <li>{{ a.agent_email }} - {{ a.ticket_count }} tickets (${{ a.commission }} comm)</li>
+                {% else %}<li>No data</li>{% endfor %}
+            </ul>
+        </div>
+
+        <!-- 2. Frequent Customer -->
+        <div style="border: 1px solid #ccc; padding: 15px;">
+            <h4>Most Frequent Customer (Last Year)</h4>
+            {% if most_freq_customer %}
+                <p><strong>{{ most_freq_customer.customer_email }}</strong></p>
+                <p>Flights taken: {{ most_freq_customer.cnt }}</p>
+            {% else %}
+                <p>No data available.</p>
+            {% endif %}
+        </div>
+
+        <!-- 3. Tickets Sold -->
+        <div style="border: 1px solid #ccc; padding: 15px;">
+            <h4>Tickets Sold Per Month</h4>
+            <table border="1" width="100%">
+                <tr><th>Month</th><th>Count</th></tr>
+                {% for i in range(months|length) %}
+                <tr><td>{{ months[i] }}</td><td>{{ counts[i] }}</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- 4. Delay Stats -->
+        <div style="border: 1px solid #ccc; padding: 15px;">
+            <h4>Flight Status Breakdown</h4>
+            <ul>
+                {% for i in range(statuses|length) %}
+                <li>{{ statuses[i] }}: {{ status_counts[i] }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- 5. Top Destinations -->
+        <div style="border: 1px solid #ccc; padding: 15px;">
+            <h4>Top Destinations (3 Months)</h4>
+            <ol>
+                {% for d in top_dest_3m %}
+                <li>{{ d.arrival_airport }} ({{ d.cnt }})</li>
+                {% endfor %}
+            </ol>
+            <h4>Top Destinations (1 Year)</h4>
+            <ol>
+                {% for d in top_dest_1y %}
+                <li>{{ d.arrival_airport }} ({{ d.cnt }})</li>
+                {% endfor %}
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}
