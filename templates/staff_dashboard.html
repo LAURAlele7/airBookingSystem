@@ -138,14 +138,6 @@
             <!-- Changed form to use ID and prevent default submission -->
             <form id="filterForm" onsubmit="return false;">
                 <div class="form-group">
-                    <label>Start Date</label>
-                    <input type="date" name="start_date" id="startDate">
-                </div>
-                <div class="form-group">
-                    <label>End Date</label>
-                    <input type="date" name="end_date" id="endDate">
-                </div>
-                <div class="form-group">
                     <label>Origin</label>
                     <input type="text" id="originInput" name="origin" placeholder="City or Airport" autocomplete="off">
                     <div id="originSuggestions" class="suggestion-box"></div>
@@ -154,6 +146,14 @@
                     <label>Destination</label>
                     <input type="text" id="destInput" name="destination" placeholder="City or Airport" autocomplete="off">
                     <div id="destSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" name="start_date" id="startDate">
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" name="end_date" id="endDate">
                 </div>
                 <!-- Removed Apply Button, added Reset -->
                 <div class="form-group" style="text-align: center; margin-top: 10px;">
@@ -228,32 +228,64 @@
         const endDate = document.getElementById('endDate');
         const originBox = document.getElementById('originSuggestions');
         const destBox = document.getElementById('destSuggestions');
+        const rangeInputs = document.querySelectorAll('input[name="dateRange"]');
 
-        // 1. Attach Event Listeners for Dynamic Search
+        // 1. Attach Event Listeners
+        // When dates or range change, we need to refresh both the flights AND the autocomplete list
         const inputs = [startDate, endDate];
         inputs.forEach(input => {
-            input.addEventListener('input', fetchFlights);
+            input.addEventListener('change', () => {
+                fetchFlights();
+                loadAirports(); // Reload suggestions based on new time range
+            });
         });
 
-        // 2. Fetch airports for suggestions
-        fetch("{{ url_for('staff.get_airports') }}")
-            .then(response => response.json())
-            .then(data => {
-                setupAutocomplete(originInput, originBox, data.origins);
-                setupAutocomplete(destInput, destBox, data.destinations);
-            })
-            .catch(err => console.error('Failed to load airports', err));
+        rangeInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                fetchFlights();
+                loadAirports(); // Reload suggestions based on new time range
+            });
+        });
+
+        // Initial load
+        loadAirports();
+
+        function loadAirports() {
+            const formData = new FormData(document.getElementById('filterForm'));
+            const params = new URLSearchParams(formData);
+            const rangeVal = document.querySelector('input[name="dateRange"]:checked').value;
+            params.append('range', rangeVal);
+
+            fetch("{{ url_for('staff.get_airports') }}?" + params.toString())
+                .then(response => response.json())
+                .then(data => {
+                    // Update the autocomplete handlers with new data
+                    setupAutocomplete(originInput, originBox, data.origins);
+                    setupAutocomplete(destInput, destBox, data.destinations);
+                })
+                .catch(err => console.error('Failed to load airports', err));
+        }
 
         function setupAutocomplete(input, box, data) {
+            // Clone input to remove old event listeners (simple way to reset)
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+            input = newInput; // Update reference
+            
+            // Re-attach necessary ID/Variables if needed by other parts (fetchFlights uses ID)
+            
             input.addEventListener('focus', () => {
                 renderList(data, input, box);
                 box.style.display = 'block';
             });
+            
+            // Close on click outside
             document.addEventListener('click', (e) => {
                 if (!input.contains(e.target) && !box.contains(e.target)) {
                     box.style.display = 'none';
                 }
             });
+
             input.addEventListener('input', () => {
                 const val = input.value.toLowerCase();
                 const filtered = data.filter(item => 
@@ -262,14 +294,14 @@
                 );
                 renderList(filtered, input, box);
                 box.style.display = 'block';
-                fetchFlights(); // Trigger search on input
+                fetchFlights(); 
             });
         }
 
         function renderList(list, input, box) {
             box.innerHTML = '';
             if(list.length === 0) {
-                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches</div>';
+                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches in this time range</div>';
                 return;
             }
             list.forEach(item => {
@@ -279,7 +311,7 @@
                 div.onclick = () => {
                     input.value = item.code;
                     box.style.display = 'none';
-                    fetchFlights(); // Trigger search immediately on click
+                    fetchFlights(); 
                 };
                 box.appendChild(div);
             });
@@ -290,6 +322,10 @@
     function fetchFlights() {
         const formData = new FormData(document.getElementById('filterForm'));
         const params = new URLSearchParams(formData);
+        
+        // Ensure we get the current input values directly if FormData misses dynamic updates
+        params.set('origin', document.getElementById('originInput').value);
+        params.set('destination', document.getElementById('destInput').value);
 
         const rangeVal = document.querySelector('input[name="dateRange"]:checked').value;
         params.append('range', rangeVal);
@@ -329,7 +365,14 @@
 
     function resetFilters() {
         document.getElementById('filterForm').reset();
+        document.getElementById('originInput').value = ''; // Explicit clear
+        document.getElementById('destInput').value = '';
         fetchFlights();
+        // Also reload airports to default state
+        // We need to manually trigger the loadAirports logic or just reload page
+        // Accessing the internal function is hard, so we can just trigger a change event
+        document.querySelector('input[name="dateRange"][value="30"]').checked = true;
+        document.querySelector('input[name="dateRange"]').dispatchEvent(new Event('change'));
     }
 </script>
 {% endblock %}

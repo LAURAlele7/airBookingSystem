@@ -157,9 +157,12 @@ def api_agent_customers():
 @agent_bp.route("/api/agent_transactions")
 @login_required(role="agent")
 def api_agent_transactions():
-    """API for dynamic transaction filtering."""
+    """
+    API to fetch agent transaction history dynamically.
+    """
     email = session.get("user_id")
     
+    # Get filter parameters
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
     origin = request.args.get('origin', '').strip()
@@ -179,6 +182,7 @@ def api_agent_transactions():
     """
     params = [email]
 
+    # Apply Filters
     if start_date:
         sql += " AND DATE(p.purchase_date) >= %s"
         params.append(start_date)
@@ -197,18 +201,57 @@ def api_agent_transactions():
 
     sql += " ORDER BY p.purchase_date DESC LIMIT 50"
     
-    try:
-        transactions = query_all(sql, tuple(params))
-        # Serialize dates/decimals
-        for t in transactions:
-            if t.get('purchase_date'): t['purchase_date'] = str(t['purchase_date'])
-            if t.get('departure_time'): t['departure_time'] = str(t['departure_time'])
-            if t.get('arrival_time'): t['arrival_time'] = str(t['arrival_time'])
-            if 'price' in t: t['price'] = str(t['price'])
-        return jsonify(transactions)
-    except Exception as e:
-        print(f"Error in transaction API: {e}")
-        return jsonify([])
+    transactions = query_all(sql, tuple(params))
+    
+    # Serialize for JSON
+    for t in transactions:
+        if t.get('purchase_date'): t['purchase_date'] = str(t['purchase_date'])
+        if t.get('departure_time'): t['departure_time'] = str(t['departure_time'])
+        if t.get('arrival_time'): t['arrival_time'] = str(t['arrival_time'])
+        if 'price' in t: t['price'] = str(t['price'])
+        
+    return jsonify(transactions)
+
+@agent_bp.route("/api/agent_airports")
+
+
+@agent_bp.route("/api/agent_transaction_airports")
+@login_required(role="agent")
+def get_agent_transaction_airports():
+    """
+    Return distinct origins and destinations found in the agent's transaction history.
+    Used for filtering the transaction list.
+    """
+    email = session.get("user_id")
+    
+    # Origins from history
+    sql_origins = """
+        SELECT DISTINCT f.departure_airport AS code, da.city
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+        JOIN airport da ON f.departure_airport = da.name
+        WHERE p.agent_email = %s
+        ORDER BY da.city
+    """
+    origins = query_all(sql_origins, (email,))
+
+    # Destinations from history
+    sql_dests = """
+        SELECT DISTINCT f.arrival_airport AS code, aa.city
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+        JOIN airport aa ON f.arrival_airport = aa.name
+        WHERE p.agent_email = %s
+        ORDER BY aa.city
+    """
+    dests = query_all(sql_dests, (email,))
+
+    return jsonify({
+        "origins": origins,
+        "destinations": dests
+    })
 
 @agent_bp.route("/api/search_flights")
 @login_required(role="agent")

@@ -157,7 +157,7 @@ def api_customer_flights():
 def analytics():
     staff, airline_name = _get_staff_and_airline()
 
-    # Top agents (month)
+    # Top agents (month) - by ticket count
     sql_top_agent_month = """
         SELECT p.agent_email,
                COUNT(*) AS ticket_count,
@@ -174,8 +174,29 @@ def analytics():
     """
     top_agent_month = query_all(sql_top_agent_month, (airline_name,))
 
+    # Top agents (year) - by ticket count
     sql_top_agent_year = sql_top_agent_month.replace("1 MONTH", "1 YEAR")
     top_agent_year = query_all(sql_top_agent_year, (airline_name,))
+
+    # Top agents (year) - by commission
+    sql_top_agent_commission_year = """
+        SELECT p.agent_email,
+               COALESCE(SUM(t.ticket_price*0.1), 0) AS total_commission
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+        WHERE f.airline_name=%s
+          AND p.purchase_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+          AND p.agent_email IS NOT NULL
+        GROUP BY p.agent_email
+        ORDER BY total_commission DESC
+        LIMIT 5
+    """
+    top_agent_commission_year = query_all(sql_top_agent_commission_year, (airline_name,))
+
+    # Top agents (month) - by commission
+    sql_top_agent_commission_month = sql_top_agent_commission_year.replace("1 YEAR", "1 MONTH")
+    top_agent_commission_month = query_all(sql_top_agent_commission_month, (airline_name,))
 
     # Most frequent customer last year
     sql_freq_cust = """
@@ -239,6 +260,8 @@ def analytics():
         airline_name=airline_name,
         top_agent_month=top_agent_month,
         top_agent_year=top_agent_year,
+        top_agent_commission_year=top_agent_commission_year,
+        top_agent_commission_month=top_agent_commission_month,
         most_freq_customer=most_freq_customer,
         months=months,
         counts=counts,
@@ -455,7 +478,6 @@ def update_status():
     sql = """
         SELECT * FROM flight
         WHERE airline_name = %s
-          AND status NOT IN ('cancelled', 'arrived')
         ORDER BY departure_time ASC
     """
     flights = query_all(sql, (airline_name,))
@@ -484,33 +506,61 @@ def get_customers():
 @staff_bp.route("/api/get_airports")
 @login_required(role="staff")
 def get_airports():
-    """Fetch distinct origins and destinations for the staff's airline."""
+    """
+    Fetch distinct origins and destinations based on the current time filter.
+    If range='all', show all airports used in any flight.
+    If range='30' (default), show only airports used in flights in the next 30 days.
+    """
     _, airline_name = _get_staff_and_airline()
+    
+    date_range = request.args.get("range", "30")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    # Base condition: Airline
+    conditions = ["f.airline_name = %s"]
+    params = [airline_name]
+
+    # Time filtering logic (matches search_flights_api)
+    if start_date or end_date:
+        if start_date:
+            conditions.append("f.departure_time >= %s")
+            params.append(start_date)
+        if end_date:
+            conditions.append("f.departure_time <= %s")
+            params.append(end_date)
+    elif date_range == "30":
+        conditions.append("f.departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)")
+    
+    where_clause = " AND ".join(conditions)
+
     try:
         # Origins
-        sql_origins = """
+        sql_origins = f"""
             SELECT DISTINCT f.departure_airport AS code, a.city
             FROM flight f
             JOIN airport a ON f.departure_airport = a.name
-            WHERE f.airline_name = %s
-            ORDER BY a.city
+            WHERE {where_clause}
+            ORDER BY a.city, f.departure_airport
         """
-        origins = query_all(sql_origins, (airline_name,))
+        origins = query_all(sql_origins, tuple(params))
 
         # Destinations
-        sql_dests = """
+        sql_dests = f"""
             SELECT DISTINCT f.arrival_airport AS code, a.city
             FROM flight f
             JOIN airport a ON f.arrival_airport = a.name
-            WHERE f.airline_name = %s
-            ORDER BY a.city
+            WHERE {where_clause}
+            ORDER BY a.city, f.arrival_airport
         """
-        dests = query_all(sql_dests, (airline_name,))
+        dests = query_all(sql_dests, tuple(params))
 
         return jsonify({"origins": origins, "destinations": dests})
     except Exception as e:
         print(f"Error getting airports: {e}")
         return jsonify({"origins": [], "destinations": []})
+
+@staff_bp.route("/api/search_flights")
 
 @staff_bp.route("/api/search_flights")
 @login_required(role="staff")

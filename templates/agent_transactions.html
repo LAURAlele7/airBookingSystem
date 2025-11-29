@@ -127,8 +127,8 @@
         const filterBtn = document.getElementById('filterBtn');
 
         // 1. Fetch Autocomplete Data
-        // Airports
-        fetch("{{ url_for('agent.get_agent_airports') }}")
+        // Airports (Updated to fetch only from transaction history)
+        fetch("{{ url_for('agent.get_agent_transaction_airports') }}")
             .then(res => res.json())
             .then(data => {
                 setupAutocomplete(originInput, originBox, data.origins, 'airport');

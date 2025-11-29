@@ -105,6 +105,7 @@
     </div>
 
     <div class="charts-grid">
+        <div class="charts-grid">
         <!-- 4. Top Agents (Bar Chart - Month vs Year) -->
         <div class="chart-card">
             <h4>Top Agents (By Ticket Count)</h4>
@@ -115,6 +116,18 @@
             <canvas id="agentsChart"></canvas>
         </div>
 
+        <!-- NEW: Top Agents by Commission -->
+        <div class="chart-card">
+            <h4>Top Agents (By Commission)</h4>
+            <div style="margin-bottom: 15px; text-align: center;">
+                <button onclick="toggleCommissionChart('month')" id="btnCommMonth" style="padding: 5px 10px; cursor: pointer;">Last Month</button>
+                <button onclick="toggleCommissionChart('year')" id="btnCommYear" style="padding: 5px 10px; cursor: pointer;">Last Year</button>
+            </div>
+            <canvas id="agentsCommissionChart"></canvas>
+        </div>
+    </div>
+
+    <div class="charts-grid">
         <!-- 5. Top Destinations -->
         <div class="chart-card">
             <h4>Top Destinations</h4>
@@ -271,6 +284,58 @@
 
         // Initialize with Month view
         toggleAgentChart('month');
+
+        // --- 4. Top Agents by Commission Chart (Toggle Logic) ---
+        const commMonth = {{ top_agent_commission_month | tojson }};
+        const commYear = {{ top_agent_commission_year | tojson }};
+        
+        let commChartInstance = null;
+
+        window.toggleCommissionChart = function(period) {
+            const ctx = document.getElementById('agentsCommissionChart');
+            const data = period === 'month' ? commMonth : commYear;
+            
+            // Update button styles
+            document.getElementById('btnCommMonth').style.fontWeight = period === 'month' ? 'bold' : 'normal';
+            document.getElementById('btnCommYear').style.fontWeight = period === 'year' ? 'bold' : 'normal';
+
+            const labels = data.map(d => d.agent_email.split('@')[0]);
+            const values = data.map(d => d.total_commission);
+
+            if (commChartInstance) {
+                commChartInstance.destroy();
+            }
+
+            commChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Commission ($)',
+                        data: values,
+                        backgroundColor: 'rgba(255, 193, 7, 0.6)',
+                        borderColor: '#ffc107',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Commission: $${Number(context.raw).toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        // Initialize Commission Chart with Month view
+        toggleCommissionChart('month');
     });
 </script>
 {% endblock %}
