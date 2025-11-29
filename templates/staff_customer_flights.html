@@ -3,120 +3,229 @@
 
 {% block head_extra %}
 <style>
-    .suggestion-box {
+    .dashboard-container { padding: 20px; }
+
+    /* Flex container */
+    .dashboard-content {
         display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 5px;
-        margin-bottom: 15px;
+        gap: 20px;
+        align-items: flex-start;
     }
-    .chip {
-        background-color: #e0e0e0;
-        padding: 5px 10px;
-        border-radius: 16px;
-        font-size: 0.85em;
+
+    /* Left Column: Filters */
+    .filter-column {
+        flex: 0 0 300px;
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+
+    /* Right Column: Results */
+    .results-column {
+        flex: 1;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        min-height: 500px;
+    }
+
+    /* Form Elements */
+    .form-group { position: relative; margin-bottom: 15px; }
+    .form-group label { font-weight: bold; display: block; margin-bottom: 5px; color: #555; }
+    .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+
+    /* Autocomplete Box */
+    .suggestion-box {
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.95em; }
+    .suggestion-item:hover { background-color: #f0f0f0; }
+
+    /* Table Styles */
+    .flight-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .flight-table th, .flight-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .flight-table th { background-color: #007bff; color: white; font-weight: bold; }
+
+    .btn-action {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 4px;
         cursor: pointer;
-        transition: background-color 0.2s;
+        font-weight: bold;
+        margin-top: 5px;
     }
-    .chip:hover {
-        background-color: #d0d0d0;
-    }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-secondary { background-color: #6c757d; color: white; margin-top: 10px; }
+    .btn-primary:hover { background-color: #0056b3; }
+    .btn-secondary:hover { background-color: #5a6268; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="padding: 20px; max-width: 900px; margin: 0 auto;">
-    <h3>Customer Flight History ({{ airline_name }})</h3>
-    <a href="{{ url_for('staff.dashboard') }}">&larr; Back to Dashboard</a>
-    <hr>
-
-    <form method="post" id="searchForm" style="margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px;">
-        <div style="margin-bottom: 10px;">
-            <label style="font-weight: bold;">Customer Email:</label>
-            <input type="email" id="customerEmailInput" name="customer_email" 
-                   value="{{ selected_email if selected_email else '' }}"
-                   required placeholder="Start typing or select below..." 
-                   style="width: 100%; padding: 8px; margin-top: 5px;" autocomplete="off">
-        </div>
-        
-        <!-- Dynamic Suggestions Area -->
-        <div id="customerSuggestions" class="suggestion-box">
-            <!-- Chips will be loaded here -->
-            <span style="color: #777; font-size: 0.9em;">Loading customers...</span>
-        </div>
-
-        <button type="submit" style="background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Search History</button>
-    </form>
-
-    {% if flights %}
-    <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-        <tr style="background: #007bff; color: white;">
-            <th style="padding: 10px;">Flight No</th>
-            <th style="padding: 10px;">Route</th>
-            <th style="padding: 10px;">Date</th>
-            <th style="padding: 10px;">Ticket ID</th>
-        </tr>
-        {% for f in flights %}
-        <tr>
-            <td style="padding: 10px;">{{ f.flight_number }}</td>
-            <td style="padding: 10px;">{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</td>
-            <td style="padding: 10px;">{{ f.departure_time }}</td>
-            <td style="padding: 10px;">{{ f.ticket_ID }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% elif request.method == 'POST' %}
-    <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; border-radius: 4px;">
-        No flights found for this customer on this airline.
+<div class="dashboard-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Customer Flight History ({{ airline_name }})</h2>
+        <a href="{{ url_for('staff.dashboard') }}" style="text-decoration: none; color: #007bff; font-weight: bold;">&larr; Back to Dashboard</a>
     </div>
-    {% endif %}
+
+    <div class="dashboard-content">
+        <!-- LEFT COLUMN: Search -->
+        <div class="filter-column">
+            <h3>Search Customer</h3>
+            <form id="searchForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label>Customer Email</label>
+                    <input type="email" id="customerEmailInput" placeholder="Start typing to search..." autocomplete="off">
+                    <div id="customerSuggestions" class="suggestion-box"></div>
+                </div>
+                <button type="button" onclick="loadFlights()" class="btn-action btn-primary">Search</button>
+                <button type="button" onclick="resetSearch()" class="btn-action btn-secondary">Reset</button>
+            </form>
+        </div>
+
+        <!-- RIGHT COLUMN: Results -->
+        <div class="results-column">
+            <h3>Flight History</h3>
+            <div id="resultsArea">
+                <p style="color: #666;">Loading history...</p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const input = document.getElementById('customerEmailInput');
     const suggestionsBox = document.getElementById('customerSuggestions');
+    const resultsArea = document.getElementById('resultsArea');
     let allCustomers = [];
 
-    // 1. Fetch all customers for this airline
+    // 1. Fetch all customers for this airline for autocomplete
     fetch("{{ url_for('staff.get_customers') }}")
         .then(response => response.json())
         .then(data => {
             allCustomers = data;
-            renderSuggestions(allCustomers.slice(0, 10)); // Show first 10 initially
         })
-        .catch(err => {
-            suggestionsBox.innerHTML = '<span style="color: red;">Error loading customers</span>';
-            console.error(err);
-        });
+        .catch(err => console.error('Error loading customers:', err));
 
-    // 2. Filter suggestions as user types
-    input.addEventListener('input', function() {
-        const val = this.value.toLowerCase();
-        const filtered = allCustomers.filter(email => email.toLowerCase().includes(val));
-        renderSuggestions(filtered.slice(0, 10)); // Limit to 10 suggestions
+    // 2. Autocomplete Logic
+    input.addEventListener('focus', () => filterAndShow(input.value));
+    input.addEventListener('input', () => filterAndShow(input.value));
+
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.style.display = 'none';
+        }
     });
 
-    // Helper to render chips
-    function renderSuggestions(list) {
+    function filterAndShow(val) {
+        const lowerVal = val.toLowerCase();
+        const filtered = allCustomers.filter(email => email.toLowerCase().includes(lowerVal));
+        renderList(filtered);
+        suggestionsBox.style.display = 'block';
+    }
+
+    function renderList(list) {
         suggestionsBox.innerHTML = '';
         if (list.length === 0) {
-            suggestionsBox.innerHTML = '<span style="color: #777; font-size: 0.9em;">No matching customers found</span>';
+            suggestionsBox.innerHTML = '<div class="suggestion-item" style="color: #999; cursor: default;">No matching customers found</div>';
             return;
         }
         
         list.forEach(email => {
-            const chip = document.createElement('span');
-            chip.className = 'chip';
-            chip.textContent = email;
-            chip.onclick = function() {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.textContent = email;
+            div.onclick = function() {
                 input.value = email;
-                // Optional: Auto-submit
-                // document.getElementById('searchForm').submit();
+                suggestionsBox.style.display = 'none';
+                loadFlights(); // Trigger search on selection
             };
-            suggestionsBox.appendChild(chip);
+            suggestionsBox.appendChild(div);
         });
     }
+
+    // 3. Dynamic Search Function
+    window.loadFlights = function() {
+        const email = input.value.trim();
+        // Removed empty check to allow loading all
+
+        resultsArea.innerHTML = '<p style="color: #666;">Loading history...</p>';
+
+        fetch(`{{ url_for('staff.api_customer_flights') }}?customer_email=${encodeURIComponent(email)}`)
+            .then(res => res.json())
+            .then(flights => {
+                renderTable(flights);
+            })
+            .catch(err => {
+                console.error(err);
+                resultsArea.innerHTML = '<p style="color: red;">Error loading flight history.</p>';
+            });
+    };
+
+    window.resetSearch = function() {
+        input.value = '';
+        loadFlights(); // Load all
+    };
+
+    function renderTable(flights) {
+        if (flights.length === 0) {
+            resultsArea.innerHTML = '<p style="padding: 15px; background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; border-radius: 4px;">No flights found.</p>';
+            return;
+        }
+
+        let html = `
+            <table class="flight-table">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Flight No</th>
+                        <th>Route</th>
+                        <th>Departure</th>
+                        <th>Arrival</th>
+                        <th>Status</th>
+                        <th>Ticket ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        flights.forEach(f => {
+            const depDisplay = f.dep_city ? `${f.dep_city} (${f.departure_airport})` : f.departure_airport;
+            const arrDisplay = f.arr_city ? `${f.arr_city} (${f.arrival_airport})` : f.arrival_airport;
+            const statusClass = 'status-' + f.status.toLowerCase().replace(' ', '-');
+
+            html += `
+                <tr>
+                    <td>${f.customer_email}</td>
+                    <td>${f.flight_number}</td>
+                    <td>${depDisplay} &rarr; ${arrDisplay}</td>
+                    <td>${f.departure_time}</td>
+                    <td>${f.arrival_time}</td>
+                    <td><span class="status-badge ${statusClass}">${f.status}</span></td>
+                    <td>${f.ticket_ID}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        resultsArea.innerHTML = html;
+    }
+
+    // Initial load
+    loadFlights();
 });
 </script>
 {% endblock %}

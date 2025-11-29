@@ -1,14 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="padding: 20px; max-width: 500px; margin: 0 auto;">
-    <h3>Add New Airplane</h3>
-    <a href="{{ url_for('staff.dashboard') }}">Back</a>
-    <form method="post" style="margin-top: 15px;">
-        <label>Airplane ID:</label><br>
-        <input type="text" name="airplane_id" required><br><br>
-        <label>Seat Capacity:</label><br>
-        <input type="number" name="seat_capacity" required><br><br>
-        <button type="submit">Add Airplane</button>
-    </form>
+<div style="display: flex; gap: 40px; padding: 20px; max-width: 900px; margin: 0 auto;">
+    
+    <div style="flex: 0 0 350px;">
+        <h3>Add New Airplane</h3>
+        <a href="{{ url_for('staff.dashboard') }}" style="text-decoration: none; color: #007bff; font-weight: bold;">&larr; Back to Dashboard</a>
+         <hr>
+        <form method="post" style="margin-top: 15px;">
+            <label>Airplane ID:</label><br>
+            <input type="text" name="airplane_id" required style="width: 100%;"><br><br>
+            <label>Seat Capacity:</label><br>
+            <input type="number" name="seat_capacity" required style="width: 100%;"><br><br>
+            <button type="submit" style="width: 100%; padding: 10px;">Add Airplane</button>
+        </form>
+    </div>
+
+    <div style="flex: 1;">
+        <h3>Fleet for {{ airline_name }}</h3>
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; border-bottom: 2px solid #ddd; text-align: left;">Airplane ID</th>
+                    <th style="padding: 10px; border-bottom: 2px solid #ddd; text-align: left;">Capacity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in airplanes %}
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ p.airplane_id }}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ p.seat_capacity }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" style="padding: 10px; color: #777;">No airplanes found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

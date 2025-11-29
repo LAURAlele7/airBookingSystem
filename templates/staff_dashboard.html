@@ -56,29 +56,31 @@
     .btn-action:hover { opacity: 0.9; }
 
     /* Form Styles */
-    .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+    .form-group { display: flex; flex-direction: column; margin-bottom: 15px; position: relative; }
     .form-group label { font-size: 0.85em; font-weight: bold; margin-bottom: 5px; }
     .form-group input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
 
-    /* Suggestion Chips */
+    /* Suggestion Box (Autocomplete) */
     .suggestion-box {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 5px;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
     }
-    .chip {
-        background-color: #e9ecef;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 0.75em;
+    .suggestion-item {
+        padding: 8px 10px;
         cursor: pointer;
-        border: 1px solid #ced4da;
+        border-bottom: 1px solid #eee;
+        font-size: 0.9em;
     }
-    .chip:hover {
-        background-color: #dde2e6;
-        border-color: #adb5bd;
-    }
+    .suggestion-item:hover { background-color: #f0f0f0; }
 
     /* Table Styles */
     .flight-table {
@@ -130,7 +132,6 @@
     </div>
 
     <div class="dashboard-content">
-        <div class="dashboard-content">
         <!-- LEFT COLUMN: Filters -->
         <div class="filter-column">
             <h3>Filter Flights</h3>
@@ -146,12 +147,12 @@
                 </div>
                 <div class="form-group">
                     <label>Origin</label>
-                    <input type="text" id="originInput" name="origin" placeholder="JFK" autocomplete="off">
+                    <input type="text" id="originInput" name="origin" placeholder="City or Airport" autocomplete="off">
                     <div id="originSuggestions" class="suggestion-box"></div>
                 </div>
                 <div class="form-group">
                     <label>Destination</label>
-                    <input type="text" id="destInput" name="destination" placeholder="PVG" autocomplete="off">
+                    <input type="text" id="destInput" name="destination" placeholder="City or Airport" autocomplete="off">
                     <div id="destSuggestions" class="suggestion-box"></div>
                 </div>
                 <!-- Removed Apply Button, added Reset -->
@@ -195,8 +196,12 @@
                         <tr>
                             <td>{{ f.flight_number }}</td>
                             <td>{{ f.airplane_assigned }}</td>
-                            <td>{{ f.departure_airport }}</td>
-                            <td>{{ f.arrival_airport }}</td>
+                            <td>
+                                {% if f.dep_city %}{{ f.dep_city }} ({{ f.departure_airport }}){% else %}{{ f.departure_airport }}{% endif %}
+                            </td>
+                            <td>
+                                {% if f.arr_city %}{{ f.arr_city }} ({{ f.arrival_airport }}){% else %}{{ f.arrival_airport }}{% endif %}
+                            </td>
                             <td>{{ f.departure_time | datetimeformat }}</td>
                             <td>{{ f.arrival_time | datetimeformat }}</td>
                             <td>
@@ -221,9 +226,11 @@
         const destInput = document.getElementById('destInput');
         const startDate = document.getElementById('startDate');
         const endDate = document.getElementById('endDate');
+        const originBox = document.getElementById('originSuggestions');
+        const destBox = document.getElementById('destSuggestions');
 
         // 1. Attach Event Listeners for Dynamic Search
-        const inputs = [originInput, destInput, startDate, endDate];
+        const inputs = [startDate, endDate];
         inputs.forEach(input => {
             input.addEventListener('input', fetchFlights);
         });
@@ -231,26 +238,50 @@
         // 2. Fetch airports for suggestions
         fetch("{{ url_for('staff.get_airports') }}")
             .then(response => response.json())
-            .then(airports => {
-                populateSuggestions('originSuggestions', originInput, airports);
-                populateSuggestions('destSuggestions', destInput, airports);
+            .then(data => {
+                setupAutocomplete(originInput, originBox, data.origins);
+                setupAutocomplete(destInput, destBox, data.destinations);
             })
             .catch(err => console.error('Failed to load airports', err));
 
-        function populateSuggestions(containerId, inputElement, data) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            const displayData = data.slice(0, 10);
-            
-            displayData.forEach(code => {
-                const chip = document.createElement('span');
-                chip.className = 'chip';
-                chip.textContent = code;
-                chip.onclick = () => {
-                    inputElement.value = code;
+        function setupAutocomplete(input, box, data) {
+            input.addEventListener('focus', () => {
+                renderList(data, input, box);
+                box.style.display = 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !box.contains(e.target)) {
+                    box.style.display = 'none';
+                }
+            });
+            input.addEventListener('input', () => {
+                const val = input.value.toLowerCase();
+                const filtered = data.filter(item => 
+                    item.code.toLowerCase().includes(val) || 
+                    item.city.toLowerCase().includes(val)
+                );
+                renderList(filtered, input, box);
+                box.style.display = 'block';
+                fetchFlights(); // Trigger search on input
+            });
+        }
+
+        function renderList(list, input, box) {
+            box.innerHTML = '';
+            if(list.length === 0) {
+                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches</div>';
+                return;
+            }
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = `${item.city} (${item.code})`;
+                div.onclick = () => {
+                    input.value = item.code;
+                    box.style.display = 'none';
                     fetchFlights(); // Trigger search immediately on click
                 };
-                container.appendChild(chip);
+                box.appendChild(div);
             });
         }
     });
@@ -276,12 +307,15 @@
 
                 data.forEach(f => {
                     const statusClass = 'status-' + f.status.toLowerCase().replace(' ', '-');
+                    const depDisplay = f.dep_city ? `${f.dep_city} (${f.departure_airport})` : f.departure_airport;
+                    const arrDisplay = f.arr_city ? `${f.arr_city} (${f.arrival_airport})` : f.arrival_airport;
+
                     const row = `
                         <tr>
                             <td>${f.flight_number}</td>
                             <td>${f.airplane_assigned}</td>
-                            <td>${f.departure_airport}</td>
-                            <td>${f.arrival_airport}</td>
+                            <td>${depDisplay}</td>
+                            <td>${arrDisplay}</td>
                             <td>${f.departure_time}</td>
                             <td>${f.arrival_time}</td>
                             <td><span class="status-badge ${statusClass}">${f.status}</span></td>

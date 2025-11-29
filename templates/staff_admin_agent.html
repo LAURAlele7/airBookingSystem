@@ -1,12 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="padding: 20px; max-width: 500px; margin: 0 auto;">
-    <h3>Authorize Booking Agent</h3>
-    <a href="{{ url_for('staff.dashboard') }}">Back</a>
-    <form method="post" style="margin-top: 15px;">
-        <label>Agent Email:</label><br>
-        <input type="email" name="agent_email" required><br><br>
-        <button type="submit">Authorize</button>
-    </form>
+<div style="display: flex; gap: 40px; padding: 20px; max-width: 900px; margin: 0 auto;">
+    
+    <div style="flex: 0 0 350px;">
+        <h3>Authorize Booking Agent</h3>
+        <a href="{{ url_for('staff.dashboard') }}" style="text-decoration: none; color: #007bff; font-weight: bold;">&larr; Back to Dashboard</a>
+        <form method="post" style="margin-top: 15px;">
+            <label>Agent Email:</label><br>
+            <input type="email" name="agent_email" required style="width: 100%;"><br><br>
+            <button type="submit" style="width: 100%; padding: 10px;">Authorize</button>
+        </form>
+    </div>
+
+    <div style="flex: 1;">
+        <h3>Authorized Agents ({{ airline_name }})</h3>
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; border-bottom: 2px solid #ddd; text-align: left;">Agent Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in agents %}
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ a.agent_email }}</td>
+                </tr>
+                {% else %}
+                <tr><td style="padding: 10px; color: #777;">No agents authorized yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

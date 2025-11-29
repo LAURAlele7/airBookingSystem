@@ -1,49 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Create Flight{% endblock %}
 {% block content %}
-<div style="padding: 20px; max-width: 600px; margin: 0 auto;">
-    <h3>Create New Flight</h3>
-    <a href="{{ url_for('staff.dashboard') }}">&larr; Back</a>
-    <hr>
+<div style="display: flex; gap: 40px; padding: 20px; max-width: 1200px; margin: 0 auto;">
     
-    <form method="post">
-        <div style="margin-bottom: 10px;">
-            <label>Flight Number:</label><br>
-            <input type="text" name="flight_number" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Departure Airport:</label><br>
-            <input type="text" name="departure_airport" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Arrival Airport:</label><br>
-            <input type="text" name="arrival_airport" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Departure Time:</label><br>
-            <input type="datetime-local" name="departure_time" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Arrival Time:</label><br>
-            <input type="datetime-local" name="arrival_time" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Price:</label><br>
-            <input type="number" name="price" step="0.01" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Assigned Airplane ID:</label><br>
-            <input type="text" name="airplane_assigned" required style="width: 100%;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label>Status:</label><br>
-            <select name="status" style="width: 100%;">
-                <option value="upcoming">Upcoming</option>
-                <option value="delayed">Delayed</option>
-                <option value="on-time">On-time</option>
-            </select>
-        </div>
-        <button type="submit" style="background: #dc3545; color: white; padding: 10px 20px; border: none;">Create Flight</button>
-    </form>
+    <!-- Left: Form -->
+    <div style="flex: 0 0 400px;">
+        <h3>Create New Flight</h3>
+        <a href="{{ url_for('staff.dashboard') }}" style="text-decoration: none; color: #007bff; font-weight: bold;">&larr; Back to Dashboard</a>
+        <hr>
+        
+        <form method="post">
+            <div style="margin-bottom: 10px;">
+                <label>Flight Number:</label><br>
+                <input type="text" name="flight_number" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Departure Airport:</label><br>
+                <input type="text" name="departure_airport" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Arrival Airport:</label><br>
+                <input type="text" name="arrival_airport" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Departure Time:</label><br>
+                <input type="datetime-local" name="departure_time" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Arrival Time:</label><br>
+                <input type="datetime-local" name="arrival_time" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Price:</label><br>
+                <input type="number" name="price" step="0.01" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Assigned Airplane ID:</label><br>
+                <input type="text" name="airplane_assigned" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Status:</label><br>
+                <select name="status" style="width: 100%;">
+                    <option value="upcoming">Upcoming</option>
+                    <option value="delayed">Delayed</option>
+                    <option value="on-time">On-time</option>
+                </select>
+            </div>
+            <button type="submit" style="width: 100%; padding: 10px;">Create Flight</button>
+        </form>
+    </div>
+
+    <!-- Right: Existing Flights -->
+    <div style="flex: 1;">
+        <h3>Recent Flights ({{ airline_name }})</h3>
+        <hr>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8f9fa; text-align: left;">
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Flight #</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Route</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Departure</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Airplane</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in flights %}
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ f.flight_number }}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ f.departure_time }}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ f.airplane_assigned }}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ f.status }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="padding: 10px; color: #777;">No flights found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

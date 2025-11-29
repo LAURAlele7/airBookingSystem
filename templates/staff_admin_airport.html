@@ -1,14 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="padding: 20px; max-width: 500px; margin: 0 auto;">
-    <h3>Add New Airport</h3>
-    <a href="{{ url_for('staff.dashboard') }}">Back</a>
-    <form method="post" style="margin-top: 15px;">
-        <label>Airport Code (Name):</label><br>
-        <input type="text" name="name" required maxlength="3"><br><br>
-        <label>City:</label><br>
-        <input type="text" name="city" required><br><br>
-        <button type="submit">Add Airport</button>
-    </form>
+<div style="display: flex; gap: 40px; padding: 20px; max-width: 1000px; margin: 0 auto;">
+    
+    <div style="flex: 0 0 350px;">
+        <h3>Add New Airport</h3>
+        <a href="{{ url_for('staff.dashboard') }}" style="text-decoration: none; color: #007bff; font-weight: bold;">&larr; Back to Dashboard</a>
+         <hr>
+        <form method="post" style="margin-top: 15px;">
+            <label>Airport Code (Name):</label><br>
+            <input type="text" name="name" required maxlength="3" style="width: 100%;"><br><br>
+            <label>City:</label><br>
+            <input type="text" name="city" required style="width: 100%;"><br><br>
+            <button type="submit" style="width: 100%; padding: 10px;">Add Airport</button>
+        </form>
+    </div>
+
+    <div style="flex: 1;">
+        <h3>Existing Airports</h3>
+        <div style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; background: #fff;">
+                    <tr>
+                        <th style="padding: 10px; border-bottom: 2px solid #ddd; text-align: left;">Code</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #ddd; text-align: left;">City</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in airports %}
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ a.name }}</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ a.city }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

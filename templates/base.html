@@ -190,7 +190,7 @@
             <a href="{{ url_for('customer.spending') }}">Review Spending</a>
         {% elif session.get('user_role') == 'agent' %}
             <a href="{{ url_for('agent.dashboard') }}">Agent Dashboard</a>
-            <a href="{{ url_for('agent.flights') }}">Filter Purchases</a>
+            <a href="{{ url_for('agent.transactions') }}">Transaction History</a>
             <a href="{{ url_for('agent.analytics') }}">Analytics & Commission</a>
         {% elif session.get('user_role') == 'staff' %}
             <a href="{{ url_for('staff.dashboard') }}">Staff Dashboard</a>
