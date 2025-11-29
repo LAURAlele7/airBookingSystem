@@ -67,6 +67,10 @@ def register():
                 first_name = request.form.get("first_name", "").strip()
                 last_name = request.form.get("last_name", "").strip()
                 airline_name = request.form.get("airline_name", "").strip()
+
+                perm_admin = request.form.get("perm_admin")       # value "on" if checked
+                perm_operator = request.form.get("perm_operator") # value "on" if checked
+
                 if not first_name or not last_name or not airline_name:
                     flash("Staff requires first name, last name and airline.")
                     return render_template("register.html")
@@ -84,6 +88,12 @@ def register():
                     """,
                     (email_or_username, password_hash, first_name, last_name, airline_name),
                 )
+
+                if perm_admin:
+                    execute_sql("INSERT INTO permission (username, permission_type) VALUES (%s, 'Admin')", (email_or_username,))
+                
+                if perm_operator:
+                    execute_sql("INSERT INTO permission (username, permission_type) VALUES (%s, 'Operator')", (email_or_username,))
             else:
                 flash("Invalid role.")
                 return render_template("register.html")
