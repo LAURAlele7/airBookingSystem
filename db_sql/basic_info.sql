@@ -150,8 +150,18 @@ INSERT INTO airport (name, city) VALUES
 INSERT INTO customer VALUES("lz2879@nyu.edu", "123456", "Laura Zhang", "76", "Daduhe Road", "Shanghai", "Shanghai", "13817686666", "20300501","China", "20040501");
 INSERT INTO customer VALUES("ly2888@nyu.edu", "789126", "Leyang Zhang", "255", "Meichuan Road", "Atlanta", "Florida", "13817688888", "20280423","Japan", "20000213");
 INSERT INTO customer VALUES("xz2666@nyu.edu", "234567", "Julia Wang", "80", "Lafayette Street", "New York", "New York", "13817686666", "20351214","United States", "19881230");
+INSERT INTO customer VALUES
+("alice@test.com", "pw", "Alice", 1, "", "New York", "", "0000000000", "20300101", "USA", "20000101"),
+("bob@test.com", "pw", "Bob", 1, "", "Seattle", "", "0000000000", "20300101", "USA", "20000101"),
+("charlie@test.com", "pw", "Charlie", 1, "", "Chicago", "", "0000000000", "20300101", "USA", "20000101"),
+("diana@test.com", "pw", "Diana", 1, "", "Los Angeles", "", "0000000000", "20300101", "USA", "20000101");
+
 INSERT INTO booking_agent VALUES("xiecheng@outlook.com", "654321");
 INSERT INTO booking_agent VALUES("lvyou@163.com", "123789");
+-- agent A password is hashed version of "agentA_pass"
+INSERT INTO booking_agent VALUES ("agent_a@test.com", "pbkdf2:sha256:200000$nd9ng0JANZPKalJ9$76fcfb1ce9034cb8942934f4b2029cb3e5e54bfe92d02716d01173ac7b494402");
+INSERT INTO booking_agent VALUES ("agent_b@test.com", "agentB_pass");
+
 -- inserting airplanes
 INSERT INTO airplane VALUES("N12345", "Delta", 180);
 INSERT INTO airplane VALUES("N67890", "United", 220);
@@ -206,12 +216,35 @@ INSERT INTO ticket VALUES("5555666677778888", 250.00, "Pending", "United", "UA20
 INSERT INTO ticket VALUES("9999000011112222", 700.00, "Cancelled", "Southwest", "SW3001");
 INSERT INTO ticket VALUES("3333444455556666", 280.00, "Confirmed", "Delta", "DL1002");
 INSERT INTO ticket VALUES("7777888899990000", 320.00, "Confirmed", "United", "UA2002");
+INSERT INTO ticket VALUES
+("T000000000000001", 300.00, "Confirmed", "Delta", "DL1001"),
+("T000000000000002", 300.00, "Confirmed", "Delta", "DL1001"),
+("T000000000000003", 250.00, "Confirmed", "United", "UA2001"),
+("T000000000000004", 250.00, "Confirmed", "United", "UA2001"),
+("T000000000000005", 700.00, "Confirmed", "Southwest", "SW3001"),
+("T000000000000006", 700.00, "Confirmed", "Southwest", "SW3001");
+
 
 -- inserting purchases
 INSERT INTO purchases VALUES("lz2879@nyu.edu", NULL, "1111222233334444", "2025-08-01 12:00");
 INSERT INTO purchases VALUES("xz2666@nyu.edu", "xiecheng@outlook.com", "5555666677778888", "2025-08-02 13:00");
 INSERT INTO purchases VALUES("ly2888@nyu.edu", "lvyou@163.com", "3333444455556666", "2025-08-03 14:00");
 INSERT INTO purchases VALUES("lz2879@nyu.edu", "lvyou@163.com", "7777888899990000", "2025-08-04 15:00");
+-- Last 30 days (for commission / ticket count tests)
+INSERT INTO purchases VALUES ("alice@test.com", "agent_a@test.com", "T000000000000001", DATE_SUB(CURDATE(), INTERVAL 5 DAY));
+INSERT INTO purchases VALUES ("bob@test.com",   "agent_a@test.com", "T000000000000002", DATE_SUB(CURDATE(), INTERVAL 10 DAY));
+INSERT INTO purchases VALUES ("charlie@test.com", "agent_a@test.com", "T000000000000003", DATE_SUB(CURDATE(), INTERVAL 20 DAY));
+
+-- Last 6 months
+INSERT INTO purchases VALUES ("alice@test.com", "agent_a@test.com", "T000000000000004", DATE_SUB(CURDATE(), INTERVAL 3 MONTH));
+
+-- Last year
+INSERT INTO purchases VALUES ("diana@test.com", "agent_b@test.com", "T000000000000005", DATE_SUB(CURDATE(), INTERVAL 8 MONTH));
+INSERT INTO purchases VALUES ("bob@test.com",   "agent_b@test.com", "T000000000000006", DATE_SUB(CURDATE(), INTERVAL 11 MONTH));
+INSERT INTO purchases VALUES ("alice@test.com", "agent_b@test.com", "9999000011112222", DATE_SUB(CURDATE(), INTERVAL 7 DAY));
+INSERT INTO purchases VALUES ("charlie@test.com", "agent_b@test.com", "T000000000000015", DATE_SUB(CURDATE(), INTERVAL 40 DAY));
+INSERT INTO purchases VALUES ("diana@test.com", "agent_b@test.com", "T000000000000016", DATE_SUB(CURDATE(), INTERVAL 50 DAY));
+
 
 -- inserting staff
 INSERT INTO staff VALUES("admin_delta", "admin123", "John", "Smith", "1980-05-15", "Delta");
@@ -233,3 +266,9 @@ INSERT INTO work_with VALUES("xiecheng@outlook.com", "Delta");
 INSERT INTO work_with VALUES("xiecheng@outlook.com", "United");
 INSERT INTO work_with VALUES("lvyou@163.com", "Delta");
 INSERT INTO work_with VALUES("lvyou@163.com", "Southwest");
+-- Agent A can book for Delta + United
+INSERT INTO work_with VALUES ("agent_a@test.com", "Delta");
+INSERT INTO work_with VALUES ("agent_a@test.com", "United");
+
+-- Agent B can only book for Southwest
+INSERT INTO work_with VALUES ("agent_b@test.com", "Southwest");
