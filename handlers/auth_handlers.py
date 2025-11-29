@@ -1,16 +1,15 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from .utils import query_one, execute_sql
+from .utils import query_one, execute_sql, query_all
 
 auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
-    """
-    注册：可以选择 customer / agent / staff
-    密码后端校验，两次一致才写入数据库（使用 hash）
-    """
+    # Fetch airlines for the dropdown
+    airlines = query_all("SELECT name FROM airline")
+
     if request.method == "POST":
         role = request.form.get("role")  # 'customer' / 'agent' / 'staff'
         email_or_username = request.form.get("email_or_username", "").strip()
@@ -18,29 +17,27 @@ def register():
         confirm = request.form.get("confirm_password", "")
 
         if not role or not email_or_username or not password:
-            flash("All fields are required.")
-            return render_template("register.html")
+            flash("All fields are required.", "error")
+            return render_template("register.html", airlines=airlines)
 
         if password != confirm:
-            flash("Passwords do not match.")
-            return render_template("register.html")
+            flash("Passwords do not match.", "error")
+            return render_template("register.html", airlines=airlines)
         password_hash = generate_password_hash(password, method="pbkdf2:sha256:200000")
 
         try:
             if role == "customer":
-                # 最简单版本：只收 email + password + name，其他信息先写死 / 或后续 profile 页面补充
+                # ...existing code...
                 name = request.form.get("name", "").strip()
                 if not name:
-                    flash("Name is required for customer.")
-                    return render_template("register.html")
+                    flash("Name is required for customer.", "error")
+                    return render_template("register.html", airlines=airlines)
 
-                # 检查是否已存在
                 existing = query_one("SELECT * FROM customer WHERE email=%s", (email_or_username,))
                 if existing:
-                    flash("Customer already exists.")
-                    return render_template("register.html")
+                    flash("Customer already exists.", "error")
+                    return render_template("register.html", airlines=airlines)
 
-                # 这里为了满足 schema，填一些 demo 数据；正式项目应让用户完整填
                 execute_sql(
                     """
                     INSERT INTO customer
@@ -52,10 +49,11 @@ def register():
                 )
 
             elif role == "agent":
+                # ...existing code...
                 existing = query_one("SELECT * FROM booking_agent WHERE email=%s", (email_or_username,))
                 if existing:
-                    flash("Booking agent already exists.")
-                    return render_template("register.html")
+                    flash("Booking agent already exists.", "error")
+                    return render_template("register.html", airlines=airlines)
 
                 execute_sql(
                     "INSERT INTO booking_agent (email, password) VALUES (%s, %s)",
@@ -63,22 +61,25 @@ def register():
                 )
 
             elif role == "staff":
-                # staff 用 username
                 first_name = request.form.get("first_name", "").strip()
                 last_name = request.form.get("last_name", "").strip()
                 airline_name = request.form.get("airline_name", "").strip()
-
-                perm_admin = request.form.get("perm_admin")       # value "on" if checked
-                perm_operator = request.form.get("perm_operator") # value "on" if checked
+                
+                # Single permission choice
+                permission_type = request.form.get("permission_type") # 'Admin' or 'Operator'
 
                 if not first_name or not last_name or not airline_name:
-                    flash("Staff requires first name, last name and airline.")
-                    return render_template("register.html")
+                    flash("Staff requires first name, last name and airline.", "error")
+                    return render_template("register.html", airlines=airlines)
+                
+                if not permission_type:
+                    flash("Please select a permission role (Admin or Operator).", "error")
+                    return render_template("register.html", airlines=airlines)
 
                 existing = query_one("SELECT * FROM staff WHERE username=%s", (email_or_username,))
                 if existing:
-                    flash("Staff already exists.")
-                    return render_template("register.html")
+                    flash("Staff already exists.", "error")
+                    return render_template("register.html", airlines=airlines)
 
                 execute_sql(
                     """
@@ -89,23 +90,20 @@ def register():
                     (email_or_username, password_hash, first_name, last_name, airline_name),
                 )
 
-                if perm_admin:
-                    execute_sql("INSERT INTO permission (username, permission_type) VALUES (%s, 'Admin')", (email_or_username,))
-                
-                if perm_operator:
-                    execute_sql("INSERT INTO permission (username, permission_type) VALUES (%s, 'Operator')", (email_or_username,))
+                # Insert single permission
+                execute_sql("INSERT INTO permission (username, permission_type) VALUES (%s, %s)", (email_or_username, permission_type))
             else:
-                flash("Invalid role.")
-                return render_template("register.html")
+                flash("Invalid role.", "error")
+                return render_template("register.html", airlines=airlines)
 
-            flash("Register success, please login.")
+            flash("Register success, please login.", "success")
             return redirect(url_for("auth.login"))
 
         except Exception as e:
-            flash(f"Error during registration: {e}")
-            return render_template("register.html")
+            flash(f"Error during registration: {e}", "error")
+            return render_template("register.html", airlines=airlines)
 
-    return render_template("register.html")
+    return render_template("register.html", airlines=airlines)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -147,7 +145,7 @@ def login():
 
                     session["airline_name"] = user["airline_name"]
             else:
-                flash("Invalid role.")
+                flash("Invalid role.", "error")
                 return render_template("login.html")
 
             if not user:
@@ -159,7 +157,7 @@ def login():
             #     flash("Invalid password.")
             #     return render_template("login.html")
             if not check_password_hash(user["password"], password):
-                flash("Invalid password.")
+                flash("Invalid password.", "error")
                 return render_template("login.html")
 
             session.clear()
@@ -181,7 +179,7 @@ def login():
                 return redirect(url_for("staff.dashboard"))
 
         except Exception as e:
-            flash(f"Login error: {e}")
+            flash(f"Login error: {e}", "error")
             return render_template("login.html")
 
     return render_template("login.html")

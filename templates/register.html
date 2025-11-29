@@ -1,62 +1,116 @@
 {% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block head_extra %}
+<style>
+    .auth-card {
+        max-width: 500px;
+        margin: 40px auto;
+        padding: 30px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border: 1px solid #eee;
+    }
+    .auth-card h2 { text-align: center; margin-bottom: 20px; color: #333; }
+    
+    .role-group { display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; }
+    .role-option { cursor: pointer; }
+    .role-option input { margin-right: 5px; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+    .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    
+    .btn-submit { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; }
+    .btn-submit:hover { background: #218838; }
+
+    .perm-group { display: flex; gap: 20px; margin-top: 5px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>Register</h2>
-<form method="post">
-    <label>Role:</label>
-    <select name="role" id="role-select" onchange="onRoleChange()">
-        <option value="customer">Customer</option>
-        <option value="agent">Booking Agent</option>
-        <option value="staff">Airline Staff</option>
-    </select><br>
-
-    <label>Email / Username:</label>
-    <input type="text" name="email_or_username" required><br>
-
-    <div id="customer-extra">
-        <label>Customer Name:</label>
-        <input type="text" name="name"><br>
-    </div>
-
-    <div id="staff-extra" style="display:none;">
-        <label>First Name:</label>
-        <input type="text" name="first_name"><br>
-        <label>Last Name:</label>
-        <input type="text" name="last_name"><br>
-        <label>Airline Name:</label>
-        <input type="text" name="airline_name"><br>
-        
-        <!-- Moved Permissions INSIDE the staff-extra block for better layout -->
-        <div id="staff-permissions" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border: 1px solid #ddd;">
-            <label style="font-weight: bold;">Select Permissions:</label><br>
-            
-            <input type="checkbox" id="perm_admin" name="perm_admin">
-            <label for="perm_admin">Admin (Add flights, planes, agents)</label><br>
-            
-            <input type="checkbox" id="perm_operator" name="perm_operator">
-            <label for="perm_operator">Operator (Update flight status)</label>
+<div class="auth-card">
+    <h2>Create Account</h2>
+    <form method="post">
+        <!-- Role Selection (Radio Buttons) -->
+        <div class="role-group">
+            <label class="role-option">
+                <input type="radio" name="role" value="customer" checked onchange="onRoleChange()"> Customer
+            </label>
+            <label class="role-option">
+                <input type="radio" name="role" value="agent" onchange="onRoleChange()"> Booking Agent
+            </label>
+            <label class="role-option">
+                <input type="radio" name="role" value="staff" onchange="onRoleChange()"> Airline Staff
+            </label>
         </div>
-    </div>
 
-    <label>Password:</label>
-    <input type="password" name="password" required><br>
-    <label>Confirm Password:</label>
-    <input type="password" name="confirm_password" required><br>
+        <div class="form-group">
+            <label>Email / Username:</label>
+            <input type="text" name="email_or_username" class="form-control" required>
+        </div>
 
-    <button type="submit">Register</button>
-</form>
+        <!-- Customer Fields -->
+        <div id="customer-extra">
+            <div class="form-group">
+                <label>Full Name:</label>
+                <input type="text" name="name" class="form-control">
+            </div>
+        </div>
+
+        <!-- Staff Fields -->
+        <div id="staff-extra" style="display:none;">
+            <div class="form-group">
+                <label>First Name:</label>
+                <input type="text" name="first_name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Last Name:</label>
+                <input type="text" name="last_name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Airline:</label>
+                <select name="airline_name" class="form-control">
+                    <option value="">-- Select Airline --</option>
+                    {% for a in airlines %}
+                    <option value="{{ a.name }}">{{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group" style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                <label>Permission Role (Choose One):</label>
+                <div class="perm-group">
+                    <label><input type="radio" name="permission_type" value="Admin"> Admin</label>
+                    <label><input type="radio" name="permission_type" value="Operator"> Operator</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" name="password" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Confirm Password:</label>
+            <input type="password" name="confirm_password" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn-submit">Register</button>
+        <p style="text-align: center; margin-top: 15px; font-size: 0.9em;">
+            Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a>
+        </p>
+    </form>
+</div>
 
 <script>
 function onRoleChange() {
-    var role = document.getElementById("role-select").value;
+    var role = document.querySelector('input[name="role"]:checked').value;
     
-    // Toggle Customer Fields
     document.getElementById("customer-extra").style.display = (role === "customer") ? "block" : "none";
-    
-    // Toggle Staff Fields (Includes the permissions box now)
     document.getElementById("staff-extra").style.display = (role === "staff") ? "block" : "none";
 }
-
-// Run once on load to ensure correct state if page refreshes
 document.addEventListener('DOMContentLoaded', onRoleChange);
 </script>
 {% endblock %}
