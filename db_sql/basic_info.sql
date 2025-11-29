@@ -121,19 +121,31 @@ INSERT INTO airline VALUES("Delta");
 INSERT INTO airline VALUES("United");
 INSERT INTO airline VALUES("Southwest");
 -- inserting cities 
-Insert into city values("NewYork");
-Insert into city values("Shanghai");
-Insert into city values("LosAngeles");
-Insert into city values("SanFrancisco");
-Insert into city values("Chicago");
-Insert into city values("Atlanta");
+INSERT INTO city (city_name) VALUES
+('Seattle'),
+('Dallas'),
+('Houston'),
+('Denver'),
+('Las Vegas'),
+('New York'),
+('Los Angeles'),
+('San Francisco'),
+('Chicago'),
+('Shanghai'),
+('Atlanta');
 -- inserting airports
-INSERT INTO airport VALUES("JFK", "NewYork");
-INSERT INTO airport VALUES("PVG", "Shanghai");
-INSERT INTO airport VALUES("LAX", "LosAngeles");
-INSERT INTO airport VALUES("SFO", "SanFrancisco"); 
-INSERT INTO airport VALUES("ORD", "Chicago");
-INSERT INTO airport VALUES("ATL", "Atlanta");
+INSERT INTO airport (name, city) VALUES
+('JFK', 'New York'),
+('LAX', 'Los Angeles'),
+('SFO', 'San Francisco'),
+('ORD', 'Chicago'),
+('SEA', 'Seattle'),
+('ATL', 'Atlanta'),
+('DAL', 'Dallas'),
+('HOU', 'Houston'),
+('DEN', 'Denver'),
+('LAS', 'Las Vegas'),
+('PVG', 'Shanghai');
 -- inserting customers and booking agents
 INSERT INTO customer VALUES("lz2879@nyu.edu", "123456", "Laura Zhang", "76", "Daduhe Road", "Shanghai", "Shanghai", "13817686666", "20300501","China", "20040501");
 INSERT INTO customer VALUES("ly2888@nyu.edu", "789126", "Leyang Zhang", "255", "Meichuan Road", "Atlanta", "Florida", "13817688888", "20280423","Japan", "20000213");
@@ -146,6 +158,11 @@ INSERT INTO airplane VALUES("N67890", "United", 220);
 INSERT INTO airplane VALUES("N54321", "Southwest", 150);
 INSERT INTO airplane VALUES("N67890", "Delta", 200);
 INSERT INTO airplane VALUES("N11223", "United", 250);
+INSERT INTO airplane (airplane_id, airline_name, seat_capacity) VALUES
+('N78901', 'Delta', 180),
+('N33445', 'United', 210),
+('N99887', 'Southwest', 143);
+
 -- inserting flights
 INSERT INTO flight VALUES("DL1001", "Delta", "JFK", "LAX", "2025-09-01 08:00", "2025-09-01 11:00", 300.00, "in-progress", "N12345",180);
 INSERT INTO flight VALUES("UA2001", "United", "LAX", "ORD", "2025-09-02 09:00", "2025-09-02 15:00", 250.00, "Delayed", "N67890", 200);
@@ -153,6 +170,36 @@ INSERT INTO flight VALUES("SW3001", "Southwest", "PVG", "ATL", "2025-09-03 12:00
 INSERT INTO flight VALUES("DL1002", "Delta", "ATL", "JFK", "2025-09-04 14:00", "2025-09-04 17:00", 280.00, "Delayed", "N67890", 150);
 INSERT INTO flight VALUES("UA2002", "United", "JFK", "SFO", "2025-09-05 10:00", "2025-09-05 14:00", 320.00, "upcoming", "N11223", 220);
 INSERT INTO flight VALUES("DL1003", "Delta", "SFO", "JFK", "2025-10-15 12:00", "2025-10-16 16:00", 330.00, "upcoming", "N12345", 250);
+INSERT INTO flight VALUES
+("DL9010", "Delta", "JFK", "LAX", "2025-12-01 08:30", "2025-12-01 11:45", 320.00, "upcoming", "N78901", 180);
+
+INSERT INTO flight VALUES
+("DL9011", "Delta", "LAX", "SEA", "2025-12-05 14:20", "2025-12-05 16:05", 180.00, "upcoming", "N78901", 160);
+
+INSERT INTO flight VALUES
+("UA7720", "United", "SFO", "ORD", "2025-12-06 09:10", "2025-12-06 15:25", 290.00, "in-progress", "N33445", 200);
+
+INSERT INTO flight VALUES
+("UA7721", "United", "ORD", "JFK", "2025-12-10 13:50", "2025-12-10 17:10", 240.00, "upcoming", "N33445", 200);
+
+INSERT INTO flight VALUES
+("SW5560", "Southwest", "DAL", "HOU", "2025-12-12 07:30", "2025-12-12 08:30", 90.00, "upcoming", "N99887", 143);
+
+INSERT INTO flight VALUES
+("DL9012", "Delta", "ATL", "JFK", "2025-12-15 16:40", "2025-12-15 19:05", 310.00, "Delayed", "N78901", 180);
+
+INSERT INTO flight VALUES
+("UA7722", "United", "JFK", "DEN", "2025-12-18 10:00", "2025-12-18 13:20", 260.00, "upcoming", "N33445", 210);
+
+INSERT INTO flight VALUES
+("SW5561", "Southwest", "HOU", "LAS", "2025-12-22 11:00", "2025-12-22 13:20", 160.00, "upcoming", "N99887", 143);
+
+INSERT INTO flight VALUES
+("DL9013", "Delta", "LAX", "JFK", "2025-12-25 09:25", "2025-12-25 17:30", 345.00, "upcoming", "N78901", 180);
+
+INSERT INTO flight VALUES
+("UA7723", "United", "DEN", "SFO", "2025-12-28 15:50", "2025-12-28 18:20", 220.00, "upcoming", "N33445", 210);
+
 -- inserting tickets
 INSERT INTO ticket VALUES("1111222233334444", 300.00, "Confirmed", "Delta", "DL1001");
 INSERT INTO ticket VALUES("5555666677778888", 250.00, "Pending", "United", "UA2001");
