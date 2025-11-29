@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}My Upcoming Flights{% endblock %}
+
+{% block head_extra %}
+<style>
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85em; color: white; }
+    .status-upcoming { background-color: #17a2b8; }
+    .status-delayed { background-color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2>Your Upcoming Flights</h2>
+    <hr>
+
+    {% if flights %}
+    <table class="flight-table" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+            <tr style="background: #007bff; color: white;">
+                <th style="padding: 12px;">Ticket ID</th>
+                <th style="padding: 12px;">Airline</th>
+                <th style="padding: 12px;">Flight No.</th>
+                <th style="padding: 12px;">Route</th>
+                <th style="padding: 12px;">Departure</th>
+                <th style="padding: 12px;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in flights %}
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px;">{{ f.ticket_ID }}</td>
+                <td style="padding: 12px;">{{ f.airline_name }}</td>
+                <td style="padding: 12px;">{{ f.flight_number }}</td>
+                <td style="padding: 12px;">
+                    {% if f.dep_city %}{{ f.dep_city }} ({{ f.departure_airport }}){% else %}{{ f.departure_airport }}{% endif %}
+                    &rarr; 
+                    {% if f.arr_city %}{{ f.arr_city }} ({{ f.arrival_airport }}){% else %}{{ f.arrival_airport }}{% endif %}
+                </td>
+                <td style="padding: 12px;">{{ f.departure_time | datetimeformat }}</td>
+                <td style="padding: 12px;">
+                    <span class="status-badge status-{{ f.status | lower | replace(' ', '-') }}">
+                        {{ f.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align: center; padding: 40px; color: #666;">
+        <p>You have no upcoming flights scheduled.</p>
+        <a href="{{ url_for('customer.dashboard') }}" class="btn-primary" style="text-decoration: none; display: inline-block; margin-top: 10px;">Book a Flight</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

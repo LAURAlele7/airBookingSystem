@@ -1,36 +1,44 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>Search Flights</h2>
-<form method="post">
-    <label>Origin:</label><input type="text" name="origin">
-    <label>Destination:</label><input type="text" name="destination">
-    <label>Date:</label><input type="date" name="date">
-    <button type="submit">Search</button>
-</form>
+{% block title %}Search Results{% endblock %}
 
-{% if flights %}
-<h3>Results</h3>
-<table border="1">
-    <tr>
-        <th>Airline</th><th>Flight</th><th>From</th><th>To</th><th>Departure</th><th>Price</th><th>Action</th>
-    </tr>
-    {% for f in flights %}
-    <tr>
-        <td>{{ f.airline_name }}</td>
-        <td>{{ f.flight_number }}</td>
-        <td>{{ f.departure_airport }}</td>
-        <td>{{ f.arrival_airport }}</td>
-        <td>{{ f.departure_time }}</td>
-        <td>{{ f.price }}</td>
-        <td>
-            <form method="post" action="{{ url_for('customer.purchase') }}">
-                <input type="hidden" name="airline_name" value="{{ f.airline_name }}">
-                <input type="hidden" name="flight_number" value="{{ f.flight_number }}">
-                <button type="submit">Purchase</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
-{% endif %}
+{% block content %}
+<div style="padding: 20px;">
+    <h3>Flight Search Results</h3>
+    <a href="{{ url_for('customer.dashboard') }}">&larr; Back to Dashboard</a>
+    <hr>
+
+    {% if flights %}
+    <table border="1" style="width: 100%; border-collapse: collapse;">
+        <tr style="background: #eee;">
+            <th style="padding: 10px;">Airline</th>
+            <th style="padding: 10px;">Flight</th>
+            <th style="padding: 10px;">Route</th>
+            <th style="padding: 10px;">Departure</th>
+            <th style="padding: 10px;">Price</th>
+            <th style="padding: 10px;">Action</th>
+        </tr>
+        {% for f in flights %}
+        <tr>
+            <td style="padding: 10px;">{{ f.airline_name }}</td>
+            <td style="padding: 10px;">{{ f.flight_number }}</td>
+            <td style="padding: 10px;">{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</td>
+            <td style="padding: 10px;">{{ f.departure_time }}</td>
+            <td style="padding: 10px; font-weight: bold; color: green;">${{ f.price }}</td>
+            <td style="padding: 10px;">
+                <form method="post" action="{{ url_for('customer.purchase') }}">
+                    <input type="hidden" name="airline_name" value="{{ f.airline_name }}">
+                    <input type="hidden" name="flight_number" value="{{ f.flight_number }}">
+                    <button type="submit" style="background: #28a745; color: white; border: none; padding: 5px 15px; cursor: pointer; border-radius: 4px;">Purchase</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div style="text-align: center; padding: 40px;">
+        <p>No flights found matching your criteria.</p>
+        <a href="{{ url_for('customer.dashboard') }}">Try a different search</a>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

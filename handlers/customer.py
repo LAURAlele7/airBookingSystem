@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, session, flash, redirect, url_for
+from flask import Blueprint, render_template, request, session, flash, redirect, url_for, jsonify
 from datetime import datetime, timedelta
 
 from .utils import login_required, query_all, query_one, execute_sql
@@ -9,20 +9,126 @@ customer_bp = Blueprint("customer", __name__)
 @login_required(role="customer")
 def dashboard():
     """
-    默认：展示 upcoming purchased flights
+    Main page: Booking interface (Search)
+    """
+    return render_template("customer_dashboard.html")
+
+@customer_bp.route("/upcoming")
+@login_required(role="customer")
+def upcoming_flights():
+    """
+    Show upcoming purchased flights
     """
     email = session.get("user_id")
     sql = """
-        SELECT f.*, t.ticket_ID, p.purchase_date
+        SELECT f.*, t.ticket_ID, p.purchase_date,
+               dep.city as dep_city, 
+               arr.city as arr_city
         FROM purchases p
         JOIN ticket t ON p.ticket_ID = t.ticket_ID
         JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+        LEFT JOIN airport dep ON f.departure_airport = dep.name
+        LEFT JOIN airport arr ON f.arrival_airport = arr.name
         WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed')
         ORDER BY f.departure_time ASC
     """
     flights = query_all(sql, (email,))
-    print(flights)
-    return render_template("customer_dashboard.html", flights=flights)
+    return render_template("customer_upcoming.html", flights=flights)
+
+
+# --- NEW API FOR DYNAMIC SEARCH ---
+@customer_bp.route("/api/search_flights")
+@login_required(role="customer")
+def search_flights_api():
+    """
+    API that returns JSON list of flights.
+    If no params provided, returns ALL upcoming flights.
+    """
+    origin = request.args.get("origin", "").strip()
+    destination = request.args.get("destination", "").strip()
+    date = request.args.get("date", "").strip()
+
+    # Base condition: Only show future flights that are not cancelled
+    conditions = ["f.status = 'upcoming' AND f.departure_time > NOW()"]
+    params = []
+
+    if origin:
+        conditions.append("(f.departure_airport = %s OR dep.city LIKE %s)")
+        params.extend([origin, f"%{origin}%"])
+    
+    if destination:
+        conditions.append("(f.arrival_airport = %s OR arr.city LIKE %s)")
+        params.extend([destination, f"%{destination}%"])
+    
+    if date:
+        conditions.append("DATE(f.departure_time) = %s")
+        params.append(date)
+
+    where_clause = " AND ".join(conditions)
+
+    # Join with airport table to get City Names for display
+    sql = f"""
+    SELECT f.*, 
+               dep.city as dep_city, 
+               arr.city as arr_city
+        FROM flight f
+        LEFT JOIN airport dep ON f.departure_airport = dep.name
+        LEFT JOIN airport arr ON f.arrival_airport = arr.name
+        WHERE {where_clause}
+        ORDER BY f.departure_time ASC
+        LIMIT 50
+    """
+    
+    try:
+        flights = query_all(sql, tuple(params))
+        # Convert datetime objects to string for JSON serialization
+        for f in flights:
+            if isinstance(f.get('departure_time'), datetime):
+                f['departure_time'] = f['departure_time'].strftime('%Y-%m-%d %H:%M')
+            if isinstance(f.get('arrival_time'), datetime):
+                f['arrival_time'] = f['arrival_time'].strftime('%Y-%m-%d %H:%M')
+            # Decimal to float/str if needed, though simplejson usually handles it. 
+            # If using standard json, might need conversion.
+            if 'price' in f:
+                f['price'] = str(f['price'])
+
+        return jsonify(flights)
+    except Exception as e:
+        print(f"Error in search_flights_api: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+
+@customer_bp.route("/api/active_airports")
+@login_required(role="customer")
+def get_active_airports():
+    """
+    Return airports that actually have upcoming flights.
+    Used for autocomplete to only show relevant airports.
+    """
+    # Get origins (airports with departing flights)
+    sql_origins = """
+        SELECT DISTINCT f.departure_airport as code, a.city
+        FROM flight f
+        JOIN airport a ON f.departure_airport = a.name
+        WHERE f.status = 'upcoming' AND f.departure_time > NOW()
+        ORDER BY a.city
+    """
+    origins = query_all(sql_origins)
+
+    # Get destinations (airports with arriving flights)
+    sql_dests = """
+        SELECT DISTINCT f.arrival_airport as code, a.city
+        FROM flight f
+        JOIN airport a ON f.arrival_airport = a.name
+        WHERE f.status = 'upcoming' AND f.departure_time > NOW()
+        ORDER BY a.city
+    """
+    dests = query_all(sql_dests)
+
+    return jsonify({
+        "origins": origins,
+        "destinations": dests
+    })
 
 
 @customer_bp.route("/flights", methods=["GET", "POST"])
@@ -74,43 +180,73 @@ def flights():
 @login_required(role="customer")
 def search():
     """
-    客户搜索航班 + purchase
+    客户搜索航班 + purchase (Fallback page)
     """
-    flights = []
-    if request.method == "POST":
-        origin = request.form.get("origin", "").strip()
-        destination = request.form.get("destination", "").strip()
-        date = request.form.get("date", "").strip()
+    origin = request.args.get("origin") or request.form.get("origin")
+    destination = request.args.get("destination") or request.form.get("destination")
+    date = request.args.get("date") or request.form.get("date")
 
-        if not date:
-            flash("Date is required.")
-        else:
-            conditions = ["DATE(f.departure_time) = %s", "f.status='upcoming'"]
-            params = [date]
+    conditions = ["f.status='upcoming'"]
+    params = []
 
-            if origin:
-                conditions.append("f.departure_airport=%s")
-                params.append(origin)
-            if destination:
-                conditions.append("f.arrival_airport=%s")
-                params.append(destination)
+    if date:
+        conditions.append("DATE(f.departure_time) = %s")
+        params.append(date)
+    
+    if origin:
+        conditions.append("f.departure_airport=%s")
+        params.append(origin)
+    if destination:
+        conditions.append("f.arrival_airport=%s")
+        params.append(destination)
 
-            where_clause = " AND ".join(conditions)
-            sql = f"""
-                SELECT f.*
-                FROM flight f
-                WHERE {where_clause}
-            """
-            flights = query_all(sql, tuple(params))
+    where_clause = " AND ".join(conditions)
+    sql = f"""
+        SELECT f.*
+        FROM flight f
+        WHERE {where_clause}
+        ORDER BY f.departure_time ASC
+    """
+    flights = query_all(sql, tuple(params))
 
     return render_template("customer_search.html", flights=flights)
+
+@customer_bp.route("/book_ticket", methods=["GET"])
+@login_required(role="customer")
+def book_ticket():
+    """
+    Render the 'Buy Ticket Only' page for a specific flight.
+    """
+    airline = request.args.get("airline")
+    flight_num = request.args.get("flight_number")
+    
+    if not airline or not flight_num:
+        flash("Invalid flight selection.", "danger")
+        return redirect(url_for("customer.dashboard"))
+
+    # Updated SQL to join with airport table for city names
+    sql = """
+        SELECT f.*, 
+               dep.city as dep_city, 
+               arr.city as arr_city
+        FROM flight f
+        LEFT JOIN airport dep ON f.departure_airport = dep.name
+        LEFT JOIN airport arr ON f.arrival_airport = arr.name
+        WHERE f.airline_name=%s AND f.flight_number=%s
+    """
+    flight = query_one(sql, (airline, flight_num))
+    
+    if not flight:
+        flash("Flight not found.", "danger")
+        return redirect(url_for("customer.dashboard"))
+
+    return render_template("customer_booking.html", flight=flight)
 
 
 def check_capacity(airline_name, flight_number):
     """
     检查 flight 剩余座位
     """
-    # 获取当前飞机 seat capacity
     sql_airplane = """
         SELECT a.seat_capacity
         FROM flight f
@@ -123,7 +259,6 @@ def check_capacity(airline_name, flight_number):
         return False, "Flight not found."
     capacity = row["seat_capacity"]
 
-    # 当前已卖票数量
     sql_sold = """
         SELECT COUNT(*) AS cnt
         FROM ticket t
@@ -140,7 +275,7 @@ def check_capacity(airline_name, flight_number):
 @login_required(role="customer")
 def purchase():
     """
-    客户购票：server side enforce capacity & pricing
+    客户购票
     """
     email = session.get("user_id")
     airline_name = request.form.get("airline_name")
@@ -149,24 +284,20 @@ def purchase():
     ok, msg = check_capacity(airline_name, flight_number)
     if not ok:
         flash(msg)
-        return redirect(url_for("customer.search"))
+        return redirect(url_for("customer.dashboard"))
 
-    # 获取 flight price
     flight = query_one(
         "SELECT price FROM flight WHERE airline_name=%s AND flight_number=%s",
         (airline_name, flight_number),
     )
     if not flight:
         flash("Flight not found.")
-        return redirect(url_for("customer.search"))
+        return redirect(url_for("customer.dashboard"))
 
     price = flight["price"]
-
-    # 创建 ticket_ID 简单一点：时间戳 + email hash 片段（实际项目用更安全/唯一生成）
     ticket_id = datetime.now().strftime("%Y%m%d%H%M%S") + "C"
 
     try:
-        # 插入 ticket
         execute_sql(
             """
             INSERT INTO ticket (ticket_ID, ticket_price, ticket_status, airline_name, flight_number)
@@ -175,7 +306,6 @@ def purchase():
             (ticket_id, price, airline_name, flight_number),
         )
 
-        # 插入 purchases (无 agent)
         execute_sql(
             """
             INSERT INTO purchases (customer_email, agent_email, ticket_ID, purchase_date)
@@ -193,10 +323,6 @@ def purchase():
 @customer_bp.route("/spending", methods=["GET", "POST"])
 @login_required(role="customer")
 def spending():
-    """
-    默认：过去 12 个月总消费 + 过去 6 个月 bar chart
-    自定义：date range，总消费 + month-by-month bar chart
-    """
     email = session.get("user_id")
     custom = False
     start_date = None
@@ -211,7 +337,6 @@ def spending():
         end_date = datetime.today().date()
         start_date = end_date - timedelta(days=365)
 
-    # Total spending
     sql_total = """
         SELECT COALESCE(SUM(t.ticket_price), 0) AS total
         FROM purchases p
@@ -222,7 +347,6 @@ def spending():
     total_row = query_one(sql_total, (email, start_date, end_date))
     total_spending = float(total_row["total"]) if total_row else 0.0
 
-    # Month by month
     sql_month = """
         SELECT DATE_FORMAT(p.purchase_date, '%%Y-%%m') AS month,
                COALESCE(SUM(t.ticket_price), 0) AS total

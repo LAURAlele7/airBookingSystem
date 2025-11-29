@@ -4,14 +4,76 @@
 
 {% block head_extra %}
 <style>
-    /* 简单的样式优化 */
-    .dashboard-container {
-        padding: 20px;
+    /* ...existing code... */
+    .dashboard-container { padding: 20px; }
+    
+    /* Layout: Flex container for Search (Left) and Results (Right) */
+    .dashboard-content {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        margin-bottom: 40px;
     }
+
+    /* Left Column: Search Form */
+    .search-column {
+        flex: 0 0 300px; /* Fixed width */
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+
+    /* Right Column: Dynamic Results */
+    .results-column {
+        flex: 1; /* Takes remaining space */
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        min-height: 400px; /* Ensure height consistency */
+    }
+
+    /* Form Elements */
+    .form-group {
+        margin-bottom: 15px;
+        position: relative;
+    }
+    .form-group label { font-weight: bold; margin-bottom: 5px; display: block; color: #555; }
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    /* Suggestion Box (Autocomplete) */
+    .suggestion-box {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+    }
+    .suggestion-item {
+        padding: 8px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+    .suggestion-item:hover { background-color: #f0f0f0; }
+
+    /* Table Styles */
     .flight-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 20px;
+        margin-top: 10px;
     }
     .flight-table th, .flight-table td {
         border: 1px solid #ddd;
@@ -23,46 +85,221 @@
         color: white;
         font-weight: bold;
     }
+
+    .search-btn {
+        width: 100%;
+        padding: 10px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    .search-btn:hover {
+        background-color: #218838;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-container">
-    <h2>Upcoming Flights</h2>
+    <h2>Welcome back, {{ session.get('user_id') }}</h2>
     
-    {% if flights %}
-    <table class="flight-table">
-        <thead>
-            <tr>
-                <th>Ticket ID</th>
-                <th>Airline</th>
-                <th>Flight No.</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Departure Time</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for f in flights %}
-            <tr>
-                <td>{{ f.ticket_ID }}</td>
-                <td>{{ f.airline_name }}</td>
-                <td>{{ f.flight_number }}</td>
-                <td>{{ f.departure_airport }}</td>
-                <td>{{ f.arrival_airport }}</td>
-                <td>{{ f.departure_time | datetimeformat }}</td> <td>
-                    <span class="status-{{ f.status | lower | replace(' ', '-') }}">
-                        {{ f.status }}
-                    </span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>You have no upcoming or delayed flights scheduled.</p>
-    {% endif %}
+    <div class="dashboard-content">
+        <!-- LEFT: Search Form -->
+        <div class="search-column">
+            <h3>Book a New Flight</h3>
+            <form id="searchForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label>From</label>
+                    <input type="text" name="origin" id="originInput" placeholder="City or Airport" autocomplete="off">
+                    <div id="originSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>To</label>
+                    <input type="text" name="destination" id="destInput" placeholder="City or Airport" autocomplete="off">
+                    <div id="destSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="date" id="dateInput">
+                </div>
+                <button type="submit" id="searchBtn" class="search-btn">Search Flights</button>
+            </form>
+        </div>
 
+        <!-- RIGHT: Dynamic Results -->
+        <div class="results-column">
+            <h3>Available Flights</h3>
+            <div id="searchResultsArea">
+                <p style="color: #777; margin-top: 20px;">Loading available flights...</p>
+            </div>
+        </div>
     </div>
+
+    <hr>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const originInput = document.getElementById('originInput');
+        const destInput = document.getElementById('destInput');
+        const dateInput = document.getElementById('dateInput');
+        const originBox = document.getElementById('originSuggestions');
+        const destBox = document.getElementById('destSuggestions');
+        const resultsArea = document.getElementById('searchResultsArea');
+        const searchBtn = document.getElementById('searchBtn');
+
+        // Utility: Debounce function to limit API calls while typing
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // 1. Setup Autocomplete - UPDATED URL
+        fetch("{{ url_for('customer.get_active_airports') }}")
+            .then(res => res.json())
+            .then(data => {
+                setupAutocomplete(originInput, originBox, data.origins);
+                setupAutocomplete(destInput, destBox, data.destinations);
+            });
+
+        function setupAutocomplete(input, box, data) {
+            input.addEventListener('focus', () => {
+                renderList(data, input, box);
+                box.style.display = 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !box.contains(e.target)) {
+                    box.style.display = 'none';
+                }
+            });
+            input.addEventListener('input', () => {
+                const val = input.value.toLowerCase();
+                const filtered = data.filter(item => 
+                    item.code.toLowerCase().includes(val) || 
+                    item.city.toLowerCase().includes(val)
+                );
+                renderList(filtered, input, box);
+                box.style.display = 'block';
+            });
+        }
+
+        function renderList(list, input, box) {
+            box.innerHTML = '';
+            if(list.length === 0) {
+                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches</div>';
+                return;
+            }
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = `${item.city} (${item.code})`;
+                div.onclick = () => {
+                    input.value = item.code;
+                    box.style.display = 'none';
+                    loadFlights(); // Trigger search immediately on selection
+                };
+                box.appendChild(div);
+            });
+        }
+
+        // 2. Load Flights (All or Filtered)
+        function loadFlights() {
+            const origin = originInput.value.trim();
+            const destination = destInput.value.trim();
+            const date = dateInput.value;
+
+            // Build query string
+            const params = new URLSearchParams();
+            if (origin) params.append('origin', origin);
+            if (destination) params.append('destination', destination);
+            if (date) params.append('date', date);
+
+            // Optional: Show a subtle loading state or keep old results until new ones arrive
+            // resultsArea.innerHTML = '<p style="color: #777;">Searching...</p>'; 
+
+            fetch(`{{ url_for('customer.search_flights_api') }}?${params.toString()}`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`Server returned ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(flights => {
+                    renderResults(flights);
+                })
+                .catch(err => {
+                    console.error(err);
+                    resultsArea.innerHTML = `<p style="color: red; margin-top: 20px;">Error loading flights: ${err.message}.</p>`;
+                });
+        }
+
+        // Create a debounced version of the search function (300ms delay)
+        const debouncedSearch = debounce(loadFlights, 300);
+
+        // Attach Event Listeners for Dynamic Search
+        originInput.addEventListener('input', debouncedSearch);
+        destInput.addEventListener('input', debouncedSearch);
+        dateInput.addEventListener('change', loadFlights); // Date change is usually instant
+
+        // Trigger immediately on page load (load all)
+        loadFlights();
+
+        function renderResults(flights) {
+            resultsArea.innerHTML = '';
+            if (flights.length === 0) {
+                resultsArea.innerHTML = '<p>No flights found matching your criteria.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'flight-table';
+            
+            const thead = `
+                <thead>
+                    <tr>
+                        <th>Airline</th>
+                        <th>Flight</th>
+                        <th>Route</th>
+                        <th>Time</th>
+                        <th>Price</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+            `;
+            table.innerHTML = thead;
+            
+            const tbody = document.createElement('tbody');
+            flights.forEach(f => {
+                const depDisplay = f.dep_city ? `${f.dep_city} (${f.departure_airport})` : f.departure_airport;
+                const arrDisplay = f.arr_city ? `${f.arr_city} (${f.arrival_airport})` : f.arrival_airport;
+
+                // Construct the URL for the booking page
+                const bookUrl = "{{ url_for('customer.book_ticket') }}?airline=" + encodeURIComponent(f.airline_name) + "&flight_number=" + encodeURIComponent(f.flight_number);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${f.airline_name}</td>
+                    <td>${f.flight_number}</td>
+                    <td>${depDisplay} &rarr; ${arrDisplay}</td>
+                    <td>${f.departure_time}</td>
+                    <td style="font-weight:bold; color:green;">$${f.price}</td>
+                    <td>
+                        <a href="${bookUrl}" style="display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Book</a>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            resultsArea.appendChild(table);
+        }
+    });
+</script>
 {% endblock %}
