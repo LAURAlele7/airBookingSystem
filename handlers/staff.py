@@ -11,24 +11,41 @@ from .utils import (
 
 staff_bp = Blueprint("staff", __name__)
 
+
+def _get_staff_and_airline():
+    """Helper: return (staff_row_or_None, airline_name_or_None)."""
+    username = session.get("user_id")
+    if not username:
+        return None, session.get("airline_name")
+    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
+    airline_name = staff["airline_name"] if staff and staff.get("airline_name") else session.get("airline_name")
+    return staff, airline_name
+
+
 @staff_bp.before_request
 def check_staff_access():
     """Ensure only logged-in staff can access these routes."""
     if session.get("role") not in ["staff", "admin", "operator"]:
-        # Adjust roles based on your actual session keys
-        # For this example, assuming 'staff' covers all or specific checks are done inside
+        # You may want to redirect or abort here in real app.
         pass
+
 
 @staff_bp.route("/dashboard")
 @login_required(role="staff")
 def dashboard():
-    airline_name = session.get("airline_name")
-    
-    # Base query for the next 30 days
+    staff, airline_name = _get_staff_and_airline()
+
+    permissions = []
+    if staff:
+        # Query the permission table (assuming standard schema: username, permission_type)
+        p_rows = query_all("SELECT permission_type FROM permission WHERE username=%s", (staff['username'],))
+        permissions = [r['permission_type'] for r in p_rows]
+
     sql = """
-        SELECT * FROM flight 
-        WHERE airline_name = %s 
-        AND departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
+        SELECT *
+        FROM flight
+        WHERE airline_name = %s
+          AND departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
     """
     params = [airline_name]
 
@@ -52,22 +69,22 @@ def dashboard():
         params.extend([f"%{dest}%", f"%{dest}%"])
 
     sql += " ORDER BY departure_time ASC"
-    
+
     flights = query_all(sql, tuple(params))
-    return render_template("staff_dashboard.html", flights=flights, airline_name=airline_name)
+    return render_template("staff_dashboard.html", flights=flights, airline_name=airline_name, permissions=permissions)
+
 
 @staff_bp.route("/passengers", methods=["GET", "POST"])
 @login_required(role="staff")
 def passengers():
-    airline_name = session.get("airline_name")
+    _, airline_name = _get_staff_and_airline()
     selected_flight_num = request.args.get("flight_number") or request.form.get("flight_number")
     passengers_list = []
 
     if selected_flight_num:
-        # Fetch passengers for this flight
-        # JOIN ticket -> purchases -> customer
+        # Fetch passengers for this flight by joining through purchases
         sql = """
-            SELECT c.name, c.email, t.ticket_ID 
+            SELECT c.name, c.email, t.ticket_ID
             FROM ticket t
             JOIN purchases p ON t.ticket_ID = p.ticket_ID
             JOIN customer c ON p.customer_email = c.email
@@ -79,90 +96,61 @@ def passengers():
     flights_sql = "SELECT * FROM flight WHERE airline_name = %s ORDER BY departure_time DESC LIMIT 50"
     flights = query_all(flights_sql, (airline_name,))
 
-
-    return render_template("staff_passengers.html", 
-                           flights=flights, 
-                           passengers=passengers_list, 
-                           selected_flight=selected_flight_num)
-
-@staff_bp.route("/customer-history", methods=["GET", "POST"])
-@login_required(role="staff")
-def customer_history():
-    airline_name = session.get("airline_name")
-    customer_email = request.args.get("customer_email") or request.form.get("customer_email")
-    customer_flights = []
-
-    if customer_email:
-        sql = """
-            SELECT f.*, t.ticket_ID 
-            FROM ticket t
-            JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-            WHERE t.airline_name = %s AND t.customer_email = %s
-            ORDER BY f.departure_time DESC
-        """
-        customer_flights = query_all(sql, (airline_name, customer_email))
-
-    recent_customers_sql = """
-        SELECT DISTINCT customer_email FROM ticket 
-        WHERE airline_name = %s 
-        ORDER BY ticket_ID DESC LIMIT 20
-    """
-    recent_customers = [r['customer_email'] for r in query_all(recent_customers_sql, (airline_name,))]
-
     return render_template(
-        "staff_customer_flights.html", 
-        flights=customer_flights, 
-        recent_customers=recent_customers,
-        selected_email=customer_email
+        "staff_passengers.html",
+        flights=flights,
+        passengers=passengers_list,
+        selected_flight=selected_flight_num,
+        airline_name=airline_name,
     )
 
 
-
+# Keep a single customer_flights endpoint (consolidates previous duplicates)
 @staff_bp.route("/customer_flights", methods=["GET", "POST"])
 @login_required(role="staff")
 def customer_flights():
-    """
-    查看某 customer 在本 airline 的所有航班
-    """
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    airline_name = staff["airline_name"] if staff else None
-
+    staff, airline_name = _get_staff_and_airline()
+    customer_email = request.args.get("customer_email") or request.form.get("customer_email")
     flights = []
-    if request.method == "POST":
-        customer_email = request.form.get("customer_email", "").strip()
-        if not customer_email:
-            flash("Customer email required.")
-        else:
-            sql = """
-                SELECT f.*, t.ticket_ID, p.purchase_date
-                FROM purchases p
-                JOIN ticket t ON p.ticket_ID = t.ticket_ID
-                JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-                WHERE p.customer_email=%s AND f.airline_name=%s
-                ORDER BY f.departure_time DESC
-            """
-            flights = query_all(sql, (customer_email, airline_name))
 
-    return render_template("staff_customer_flights.html", flights=flights, airline_name=airline_name)
+    if customer_email:
+        sql = """
+            SELECT f.*, t.ticket_ID, p.purchase_date
+            FROM purchases p
+            JOIN ticket t ON p.ticket_ID = t.ticket_ID
+            JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+            WHERE p.customer_email = %s AND f.airline_name = %s
+            ORDER BY f.departure_time DESC
+        """
+        flights = query_all(sql, (customer_email, airline_name))
+
+    # Recent customers for suggestions (use purchases table)
+    recent_customers_sql = """
+        SELECT DISTINCT p.customer_email AS customer_email
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        WHERE t.airline_name = %s
+        ORDER BY p.purchase_date DESC
+        LIMIT 20
+    """
+    recent_customers_rows = query_all(recent_customers_sql, (airline_name,))
+    recent_customers = [r["customer_email"] for r in recent_customers_rows]
+
+    return render_template(
+        "staff_customer_flights.html",
+        flights=flights,
+        recent_customers=recent_customers,
+        selected_email=customer_email,
+        airline_name=airline_name,
+    )
 
 
 @staff_bp.route("/analytics")
 @login_required(role="staff")
 def analytics():
-    """
-    Analytics:
-    - Top booking agents by month / year (by tickets & commission)
-    - Most frequent customer (last year)
-    - Tickets sold per month
-    - Delay vs on-time
-    - Top destinations (last 3 months & last year)
-    """
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    airline_name = staff["airline_name"]
+    staff, airline_name = _get_staff_and_airline()
 
-    # top agents by tickets / commission in last month/year
+    # Top agents (month)
     sql_top_agent_month = """
         SELECT p.agent_email,
                COUNT(*) AS ticket_count,
@@ -179,23 +167,10 @@ def analytics():
     """
     top_agent_month = query_all(sql_top_agent_month, (airline_name,))
 
-    sql_top_agent_year = """
-        SELECT p.agent_email,
-               COUNT(*) AS ticket_count,
-               COALESCE(SUM(t.ticket_price*0.1), 0) AS commission
-        FROM purchases p
-        JOIN ticket t ON p.ticket_ID = t.ticket_ID
-        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-        WHERE f.airline_name=%s
-          AND p.purchase_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
-          AND p.agent_email IS NOT NULL
-        GROUP BY p.agent_email
-        ORDER BY ticket_count DESC
-        LIMIT 5
-    """
+    sql_top_agent_year = sql_top_agent_month.replace("1 MONTH", "1 YEAR")
     top_agent_year = query_all(sql_top_agent_year, (airline_name,))
 
-    # most frequent customer last year
+    # Most frequent customer last year
     sql_freq_cust = """
         SELECT p.customer_email, COUNT(*) AS cnt
         FROM purchases p
@@ -249,17 +224,7 @@ def analytics():
     """
     top_dest_3m = query_all(sql_top_dest_3m, (airline_name,))
 
-    sql_top_dest_1y = """
-        SELECT f.arrival_airport, COUNT(*) AS cnt
-        FROM purchases p
-        JOIN ticket t ON p.ticket_ID = t.ticket_ID
-        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-        WHERE f.airline_name=%s
-          AND p.purchase_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
-        GROUP BY f.arrival_airport
-        ORDER BY cnt DESC
-        LIMIT 5
-    """
+    sql_top_dest_1y = sql_top_dest_3m.replace("3 MONTH", "1 YEAR")
     top_dest_1y = query_all(sql_top_dest_1y, (airline_name,))
 
     return render_template(
@@ -290,10 +255,7 @@ def add_airport():
             flash("Name and city are required.")
         else:
             try:
-                execute_sql(
-                    "INSERT INTO airport (name, city) VALUES (%s, %s)",
-                    (name, city),
-                )
+                execute_sql("INSERT INTO airport (name, city) VALUES (%s, %s)", (name, city))
                 flash("Airport added.")
             except Exception as e:
                 flash(f"Error: {e}")
@@ -304,9 +266,7 @@ def add_airport():
 @login_required(role="staff")
 @staff_permission_required("Admin")
 def add_airplane():
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    airline_name = staff["airline_name"] if staff else None
+    staff, airline_name = _get_staff_and_airline()
 
     if request.method == "POST":
         airplane_id = request.form.get("airplane_id", "").strip()
@@ -329,9 +289,7 @@ def add_airplane():
 @login_required(role="staff")
 @staff_permission_required("Admin")
 def add_flight():
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    airline_name = staff["airline_name"] if staff else None
+    staff, airline_name = _get_staff_and_airline()
 
     if request.method == "POST":
         flight_number = request.form.get("flight_number", "").strip()
@@ -343,8 +301,7 @@ def add_flight():
         status = request.form.get("status", "upcoming")
         airplane_assigned = request.form.get("airplane_assigned", "").strip()
 
-        if not (flight_number and departure_airport and arrival_airport and
-                departure_time and arrival_time and price and airplane_assigned):
+        if not (flight_number and departure_airport and arrival_airport and departure_time and arrival_time and price and airplane_assigned):
             flash("All fields are required.")
         else:
             try:
@@ -371,19 +328,13 @@ def add_flight():
 @login_required(role="staff")
 @staff_permission_required("Admin")
 def add_agent():
-    """
-    关联 booking agent 和 airline
-    """
-    username = session.get("user_id")
-    staff = query_one("SELECT * FROM staff WHERE username=%s", (username,))
-    airline_name = staff["airline_name"] if staff else None
+    staff, airline_name = _get_staff_and_airline()
 
     if request.method == "POST":
         agent_email = request.form.get("agent_email", "").strip()
         if not agent_email:
             flash("Agent email is required.")
         else:
-            # 确认 agent 存在
             agent = query_one("SELECT * FROM booking_agent WHERE email=%s", (agent_email,))
             if not agent:
                 flash("Booking agent not found.")
@@ -404,43 +355,120 @@ def add_agent():
 @staff_bp.route("/operator/status", methods=["GET", "POST"])
 @login_required(role="staff")
 def update_status():
-    airline_name = session.get("airline_name")
+    _, airline_name = _get_staff_and_airline()
 
     if request.method == "POST":
         flight_num = request.form.get("flight_number")
         new_status = request.form.get("status")
-        
-        # Update query
-        sql = "UPDATE flight SET status=%s WHERE airline_name=%s AND flight_number=%s"
-        query_one(sql, (new_status, airline_name, flight_num)) # query_one/all can be used for updates too usually
-        flash(f"Flight {flight_num} status updated to {new_status}.")
+
+        if not flight_num or not new_status:
+            flash("Flight number and new status are required.")
+            return redirect(url_for("staff.update_status"))
+
+        # Use execute_sql for updates
+        try:
+            execute_sql("UPDATE flight SET status=%s WHERE airline_name=%s AND flight_number=%s",
+                        (new_status, airline_name, flight_num))
+            flash(f"Flight {flight_num} status updated to {new_status}.")
+        except Exception as e:
+            flash(f"Error updating status: {e}")
+
         return redirect(url_for("staff.update_status"))
 
     # GET: Show all upcoming/in-progress flights to allow selection
     sql = """
-        SELECT * FROM flight 
-        WHERE airline_name = %s 
-        AND status NOT IN ('cancelled', 'arrived')
+        SELECT * FROM flight
+        WHERE airline_name = %s
+          AND status NOT IN ('cancelled', 'arrived')
         ORDER BY departure_time ASC
     """
     flights = query_all(sql, (airline_name,))
-    return render_template("staff_operator_status.html", flights=flights)
+    return render_template("staff_operator_status.html", flights=flights, airline_name=airline_name)
 
 
 @staff_bp.route("/api/get_customers")
 @login_required(role="staff")
 def get_customers():
     """Fetch customer emails for suggestions."""
-    airline_name = session.get("airline_name")
+    _, airline_name = _get_staff_and_airline()
     try:
-        # Get customers who have purchased tickets from this airline
         sql = """
-            SELECT DISTINCT p.customer_email 
+            SELECT DISTINCT p.customer_email
             FROM purchases p
             JOIN ticket t ON p.ticket_ID = t.ticket_ID
             WHERE t.airline_name = %s
+            ORDER BY p.purchase_date DESC
+            LIMIT 200
         """
         customers = query_all(sql, (airline_name,))
         return jsonify([c['customer_email'] for c in customers])
     except Exception as e:
+        return jsonify([])
+
+@staff_bp.route("/api/get_airports")
+@login_required(role="staff")
+def get_airports():
+    """Fetch distinct airports for the suggestion boxes."""
+    try:
+        query = """
+            SELECT DISTINCT departure_airport as code FROM flight
+            UNION
+            SELECT DISTINCT arrival_airport as code FROM flight
+        """
+        results = query_all(query)
+        return jsonify([r['code'] for r in results])
+    except Exception as e:
+        return jsonify([])
+
+@staff_bp.route("/api/search_flights")
+@login_required(role="staff")
+def search_flights_api():
+    """API for dynamic flight search on dashboard."""
+    _, airline_name = _get_staff_and_airline()
+    
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    origin = request.args.get("origin")
+    dest = request.args.get("destination")
+    date_range = request.args.get("range", "30") # Default to 30 days
+    
+    params = [airline_name]
+    conditions = ["airline_name = %s"]
+    
+    # 1. If specific dates are manually picked, they take priority
+    if start_date or end_date:
+        if start_date:
+            conditions.append("departure_time >= %s")
+            params.append(start_date)
+        if end_date:
+            conditions.append("departure_time <= %s")
+            params.append(end_date)
+    else:
+        # 2. Otherwise, use the toggle (30 days vs All)
+        if date_range == "30":
+            conditions.append("departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)")
+        else:
+            pass
+
+    if origin:
+        conditions.append("(departure_airport LIKE %s OR departure_airport IN (SELECT name FROM airport WHERE city LIKE %s))")
+        params.extend([f"%{origin}%", f"%{origin}%"])
+    if dest:
+        conditions.append("(arrival_airport LIKE %s OR arrival_airport IN (SELECT name FROM airport WHERE city LIKE %s))")
+        params.extend([f"%{dest}%", f"%{dest}%"])
+        
+    where_clause = " AND ".join(conditions)
+    sql = f"SELECT * FROM flight WHERE {where_clause} ORDER BY departure_time ASC"
+    
+    try:
+        flights = query_all(sql, tuple(params))
+        # Serialize datetime objects for JSON
+        for f in flights:
+            if f.get('departure_time'): 
+                f['departure_time'] = f['departure_time'].strftime('%Y-%m-%d %H:%M')
+            if f.get('arrival_time'): 
+                f['arrival_time'] = f['arrival_time'].strftime('%Y-%m-%d %H:%M')
+        return jsonify(flights)
+    except Exception as e:
+        print(f"Search API Error: {e}")
         return jsonify([])

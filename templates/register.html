@@ -10,7 +10,7 @@
     </select><br>
 
     <label>Email / Username:</label>
-    <input type="text" name="email_or_username"><br>
+    <input type="text" name="email_or_username" required><br>
 
     <div id="customer-extra">
         <label>Customer Name:</label>
@@ -24,12 +24,23 @@
         <input type="text" name="last_name"><br>
         <label>Airline Name:</label>
         <input type="text" name="airline_name"><br>
+        
+        <!-- Moved Permissions INSIDE the staff-extra block for better layout -->
+        <div id="staff-permissions" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border: 1px solid #ddd;">
+            <label style="font-weight: bold;">Select Permissions:</label><br>
+            
+            <input type="checkbox" id="perm_admin" name="perm_admin">
+            <label for="perm_admin">Admin (Add flights, planes, agents)</label><br>
+            
+            <input type="checkbox" id="perm_operator" name="perm_operator">
+            <label for="perm_operator">Operator (Update flight status)</label>
+        </div>
     </div>
 
     <label>Password:</label>
-    <input type="password" name="password"><br>
+    <input type="password" name="password" required><br>
     <label>Confirm Password:</label>
-    <input type="password" name="confirm_password"><br>
+    <input type="password" name="confirm_password" required><br>
 
     <button type="submit">Register</button>
 </form>
@@ -37,8 +48,15 @@
 <script>
 function onRoleChange() {
     var role = document.getElementById("role-select").value;
+    
+    // Toggle Customer Fields
     document.getElementById("customer-extra").style.display = (role === "customer") ? "block" : "none";
+    
+    // Toggle Staff Fields (Includes the permissions box now)
     document.getElementById("staff-extra").style.display = (role === "staff") ? "block" : "none";
 }
+
+// Run once on load to ensure correct state if page refreshes
+document.addEventListener('DOMContentLoaded', onRoleChange);
 </script>
 {% endblock %}

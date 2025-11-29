@@ -49,7 +49,7 @@
                 <td>{{ flight.arrival_airport }}</td>
                 <td>{{ flight.departure_time | datetimeformat }}</td>
                 <td>
-                    <span class="status-{{ flight.status | lower | replace(' ', '-') }}">
+                    <span class="status-badge status-{{ flight.status | lower | replace(' ', '-') }}">
                         {{ flight.status }}
                     </span>
                 </td>

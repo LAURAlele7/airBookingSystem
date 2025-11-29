@@ -5,7 +5,33 @@
 {% block head_extra %}
 <style>
     .dashboard-container { padding: 20px; }
-    
+
+    /* Flex container for the main layout */
+    .dashboard-content {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start; /* Align items to the top */
+    }
+
+    /* Left Column: Filters */
+    .filter-column {
+        flex: 0 0 300px; /* Fixed width for filters */
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+
+    /* Right Column: Results */
+    .results-column {
+        flex: 1; /* Takes remaining space */
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        min-height: 500px; /* Ensure it has some height even if empty */
+    }
+
     /* Action Bar for Staff Navigation */
     .staff-actions {
         background-color: #f8f9fa;
@@ -25,25 +51,36 @@
         border-radius: 4px;
         font-size: 0.9em;
     }
-    .btn-action.admin { background-color: #dc3545; } /* Red for Admin */
-    .btn-action.operator { background-color: #28a745; } /* Green for Operator */
+    .btn-action.admin { background-color: #dc3545; } 
+    .btn-action.operator { background-color: #28a745; } 
     .btn-action:hover { opacity: 0.9; }
 
-    /* Filter Form */
-    .filter-form {
-        display: flex;
-        gap: 10px;
-        align-items: flex-end;
-        margin-bottom: 20px;
-        background: #fff;
-        padding: 15px;
-        border: 1px solid #eee;
-    }
-    .form-group { display: flex; flex-direction: column; }
-    .form-group label { font-size: 0.85em; font-weight: bold; margin-bottom: 3px; }
-    .form-group input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+    /* Form Styles */
+    .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+    .form-group label { font-size: 0.85em; font-weight: bold; margin-bottom: 5px; }
+    .form-group input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
 
-    /* Table Styles (Consistent with Customer) */
+    /* Suggestion Chips */
+    .suggestion-box {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 5px;
+    }
+    .chip {
+        background-color: #e9ecef;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75em;
+        cursor: pointer;
+        border: 1px solid #ced4da;
+    }
+    .chip:hover {
+        background-color: #dde2e6;
+        border-color: #adb5bd;
+    }
+
+    /* Table Styles */
     .flight-table {
         width: 100%;
         border-collapse: collapse;
@@ -64,84 +101,201 @@
 
 {% block content %}
 <div class="dashboard-container">
-    <h2>{{ airline_name }} Staff Dashboard</h2>
+    <h2>
+        {{ airline_name }} Staff Dashboard
+        {% if permissions %}
+            <span style="font-size: 0.5em; background-color: #6c757d; color: white; padding: 4px 8px; border-radius: 4px; vertical-align: middle; margin-left: 10px;">
+                {{ permissions | join(', ') }}
+            </span>
+        {% endif %}
+    </h2>
 
-    <!-- Navigation Menu for Staff Functions -->
+    <!-- Navigation Menu -->
     <div class="staff-actions">
         <strong>Menu:</strong>
         <a href="{{ url_for('staff.passengers') }}" class="btn-action">View Passengers</a>
         <a href="{{ url_for('staff.customer_flights') }}" class="btn-action">Customer History</a>
         <a href="{{ url_for('staff.analytics') }}" class="btn-action">Analytics</a>
         
-        <!-- Operator Actions -->
+        {% if 'Operator' in permissions or 'Admin' in permissions %}
         <a href="{{ url_for('staff.update_status') }}" class="btn-action operator">Update Flight Status</a>
+        {% endif %}
 
-        <!-- Admin Actions -->
+        {% if 'Admin' in permissions %}
         <a href="{{ url_for('staff.add_flight') }}" class="btn-action admin">Create Flight</a>
         <a href="{{ url_for('staff.add_airport') }}" class="btn-action admin">Add Airport</a>
         <a href="{{ url_for('staff.add_airplane') }}" class="btn-action admin">Add Airplane</a>
         <a href="{{ url_for('staff.add_agent') }}" class="btn-action admin">Add Agent</a>
+        {% endif %}
     </div>
 
-    <!-- Filter Form -->
-    <form method="get" action="{{ url_for('staff.dashboard') }}" class="filter-form">
-        <div class="form-group">
-            <label>Start Date</label>
-            <input type="date" name="start_date" value="{{ request.args.get('start_date', '') }}">
+    <div class="dashboard-content">
+        <div class="dashboard-content">
+        <!-- LEFT COLUMN: Filters -->
+        <div class="filter-column">
+            <h3>Filter Flights</h3>
+            <!-- Changed form to use ID and prevent default submission -->
+            <form id="filterForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" name="start_date" id="startDate">
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" name="end_date" id="endDate">
+                </div>
+                <div class="form-group">
+                    <label>Origin</label>
+                    <input type="text" id="originInput" name="origin" placeholder="JFK" autocomplete="off">
+                    <div id="originSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input type="text" id="destInput" name="destination" placeholder="PVG" autocomplete="off">
+                    <div id="destSuggestions" class="suggestion-box"></div>
+                </div>
+                <!-- Removed Apply Button, added Reset -->
+                <div class="form-group" style="text-align: center; margin-top: 10px;">
+                    <button type="button" onclick="resetFilters()" class="btn-action" style="background-color: #6c757d; font-size: 0.8em; width: 100%;">Reset Filters</button>
+                </div>
+            </form>
         </div>
-        <div class="form-group">
-            <label>End Date</label>
-            <input type="date" name="end_date" value="{{ request.args.get('end_date', '') }}">
-        </div>
-        <div class="form-group">
-            <label>Origin (Airport/City)</label>
-            <input type="text" name="origin" placeholder="JFK" value="{{ request.args.get('origin', '') }}">
-        </div>
-        <div class="form-group">
-            <label>Destination</label>
-            <input type="text" name="destination" placeholder="PVG" value="{{ request.args.get('destination', '') }}">
-        </div>
-        <div class="form-group">
-            <label>&nbsp;</label>
-            <button type="submit" class="btn-action" style="background-color: #6c757d;">Filter</button>
-        </div>
-        <div class="form-group">
-            <label>&nbsp;</label>
-            <a href="{{ url_for('staff.dashboard') }}" style="margin-left: 10px; color: #666; font-size: 0.9em; padding-top: 8px;">Reset</a>
-        </div>
-    </form>
 
-    <!-- Flights Table -->
-    <h3>Scheduled Flights</h3>
-    {% if flights %}
-    <table class="flight-table">
-        <thead>
-            <tr>
-                <th>Flight No.</th>
-                <th>Airplane ID</th>
-                <th>Origin</th>
-                <th>Destination</th>
-                <th>Departure</th>
-                <th>Arrival</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for f in flights %}
-            <tr>
-                <td>{{ f.flight_number }}</td>
-                <td>{{ f.airplane_assigned }}</td>
-                <td>{{ f.departure_airport }}</td>
-                <td>{{ f.arrival_airport }}</td>
-                <td>{{ f.departure_time | datetimeformat }}</td>
-                <td>{{ f.arrival_time | datetimeformat }}</td>
-                <td>{{ f.status }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No flights found for the selected criteria.</p>
-    {% endif %}
+        <!-- RIGHT COLUMN: Results -->
+        <div class="results-column">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Scheduled Flights</h3>
+                
+                <!-- NEW: Range Toggle -->
+                <div style="font-size: 0.9em;">
+                    <label style="margin-right: 10px;">
+                        <input type="radio" name="dateRange" value="30" checked onchange="fetchFlights()"> Next 30 Days
+                    </label>
+                    <label>
+                        <input type="radio" name="dateRange" value="all" onchange="fetchFlights()"> All
+                    </label>
+                </div>
+            </div>
+
+            <table class="flight-table">
+                <thead>
+                    <tr>
+                        <th>Flight No.</th>
+                        <th>Airplane ID</th>
+                        <th>Origin</th>
+                        <th>Destination</th>
+                        <th>Departure</th>
+                        <th>Arrival</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="flightsTableBody">
+                    {% if flights %}
+                        {% for f in flights %}
+                        <tr>
+                            <td>{{ f.flight_number }}</td>
+                            <td>{{ f.airplane_assigned }}</td>
+                            <td>{{ f.departure_airport }}</td>
+                            <td>{{ f.arrival_airport }}</td>
+                            <td>{{ f.departure_time | datetimeformat }}</td>
+                            <td>{{ f.arrival_time | datetimeformat }}</td>
+                            <td>
+                                <span class="status-badge status-{{ f.status | lower | replace(' ', '-') }}">
+                                    {{ f.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="7" style="text-align:center; color:#666;">No flights found.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const originInput = document.getElementById('originInput');
+        const destInput = document.getElementById('destInput');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+
+        // 1. Attach Event Listeners for Dynamic Search
+        const inputs = [originInput, destInput, startDate, endDate];
+        inputs.forEach(input => {
+            input.addEventListener('input', fetchFlights);
+        });
+
+        // 2. Fetch airports for suggestions
+        fetch("{{ url_for('staff.get_airports') }}")
+            .then(response => response.json())
+            .then(airports => {
+                populateSuggestions('originSuggestions', originInput, airports);
+                populateSuggestions('destSuggestions', destInput, airports);
+            })
+            .catch(err => console.error('Failed to load airports', err));
+
+        function populateSuggestions(containerId, inputElement, data) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            const displayData = data.slice(0, 10);
+            
+            displayData.forEach(code => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = code;
+                chip.onclick = () => {
+                    inputElement.value = code;
+                    fetchFlights(); // Trigger search immediately on click
+                };
+                container.appendChild(chip);
+            });
+        }
+    });
+
+    // 3. The Fetch Function
+    function fetchFlights() {
+        const formData = new FormData(document.getElementById('filterForm'));
+        const params = new URLSearchParams(formData);
+
+        const rangeVal = document.querySelector('input[name="dateRange"]:checked').value;
+        params.append('range', rangeVal);
+
+        fetch("{{ url_for('staff.search_flights_api') }}?" + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('flightsTableBody');
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#666;">No flights found matching criteria.</td></tr>';
+                    return;
+                }
+
+                data.forEach(f => {
+                    const statusClass = 'status-' + f.status.toLowerCase().replace(' ', '-');
+                    const row = `
+                        <tr>
+                            <td>${f.flight_number}</td>
+                            <td>${f.airplane_assigned}</td>
+                            <td>${f.departure_airport}</td>
+                            <td>${f.arrival_airport}</td>
+                            <td>${f.departure_time}</td>
+                            <td>${f.arrival_time}</td>
+                            <td><span class="status-badge ${statusClass}">${f.status}</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            })
+            .catch(err => console.error('Error fetching flights:', err));
+    }
+
+    function resetFilters() {
+        document.getElementById('filterForm').reset();
+        fetchFlights();
+    }
+</script>
 {% endblock %}

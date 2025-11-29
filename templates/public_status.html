@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Flight Status{% endblock %}
+
+{% block head_extra %}
+<style>
+    .status-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .search-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: flex-end;
+    }
+    .form-group { 
+        flex: 1; 
+        position: relative; /* Needed for absolute positioning of suggestion box */
+    }
+    .form-group label { font-weight: bold; display: block; margin-bottom: 5px; color: #555; }
+    .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    
+    .status-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .status-table th, .status-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+    .status-table th { background-color: #f8f9fa; color: #333; }
+
+    /* Suggestion Box Styles */
+    .suggestion-box {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+    }
+    .suggestion-item {
+        padding: 8px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+    .suggestion-item:hover { background-color: #f0f0f0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="status-container">
+    <h2>Check Flight Status</h2>
+    <p>Track in-progress or delayed flights in real-time.</p>
+    <hr>
+
+    <div class="search-row">
+        <div class="form-group">
+            <label>Airline</label>
+            <input type="text" id="airlineInput" placeholder="e.g. Delta" autocomplete="off">
+            <div id="airlineSuggestions" class="suggestion-box"></div>
+        </div>
+        <div class="form-group">
+            <label>Flight Number</label>
+            <input type="text" id="flightNumInput" placeholder="e.g. 123">
+        </div>
+        <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="dateInput">
+        </div>
+    </div>
+
+    <div id="statusResults">
+        <p style="color: #777; text-align: center;">Enter details to track a flight...</p>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const airlineInput = document.getElementById('airlineInput');
+        const airlineBox = document.getElementById('airlineSuggestions');
+        const flightNumInput = document.getElementById('flightNumInput');
+        const dateInput = document.getElementById('dateInput');
+        const resultsArea = document.getElementById('statusResults');
+
+        // 1. Fetch Airlines for Autocomplete
+        
+        let availableAirlines = [];
+
+        // Fetch distinct airlines that have active flights
+        fetch("{{ url_for('public.check_status_api') }}") 
+            .then(res => res.json())
+            .then(flights => {
+                // Extract unique airline names from the active flights
+                const airlines = new Set(flights.map(f => f.airline_name));
+                availableAirlines = Array.from(airlines).sort();
+            });
+
+        // Setup Autocomplete Logic
+        airlineInput.addEventListener('focus', () => {
+            if (availableAirlines.length > 0) {
+                renderSuggestions(availableAirlines);
+                airlineBox.style.display = 'block';
+            }
+        });
+
+        airlineInput.addEventListener('input', () => {
+            const val = airlineInput.value.toLowerCase();
+            const filtered = availableAirlines.filter(name => name.toLowerCase().includes(val));
+            renderSuggestions(filtered);
+            airlineBox.style.display = 'block';
+            debouncedLoad(); // Also trigger the main search
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!airlineInput.contains(e.target) && !airlineBox.contains(e.target)) {
+                airlineBox.style.display = 'none';
+            }
+        });
+
+        function renderSuggestions(list) {
+            airlineBox.innerHTML = '';
+            if (list.length === 0) {
+                airlineBox.style.display = 'none';
+                return;
+            }
+            list.forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = name;
+                div.onclick = () => {
+                    airlineInput.value = name;
+                    airlineBox.style.display = 'none';
+                    loadStatus(); // Trigger search immediately
+                };
+                airlineBox.appendChild(div);
+            });
+        }
+
+        // 2. Main Search Logic
+        function loadStatus() {
+            const airline = airlineInput.value.trim();
+            const flightNum = flightNumInput.value.trim();
+            const date = dateInput.value;
+
+            const params = new URLSearchParams();
+            if (airline) params.append('airline', airline);
+            if (flightNum) params.append('flight_number', flightNum);
+            if (date) params.append('date', date);
+
+            fetch(`{{ url_for('public.check_status_api') }}?${params.toString()}`)
+                .then(res => res.json())
+                .then(flights => {
+                    renderResults(flights);
+                })
+                .catch(err => console.error(err));
+        }
+
+        function renderResults(flights) {
+            resultsArea.innerHTML = '';
+            if (flights.length === 0) {
+                resultsArea.innerHTML = '<p style="text-align:center; color:#666;">No active flights found matching your criteria.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'status-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Flight</th>
+                        <th>Route</th>
+                        <th>Departure</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            
+            const tbody = table.querySelector('tbody');
+            flights.forEach(f => {
+                const statusClass = 'status-' + f.status.toLowerCase().replace(' ', '-');
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${f.airline_name}</strong> <br> ${f.flight_number}</td>
+                    <td>${f.dep_city} &rarr; ${f.arr_city}</td>
+                    <td>${f.departure_time}</td>
+                    <td><span class="status-badge ${statusClass}">${f.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            resultsArea.appendChild(table);
+        }
+
+        // Debounce
+        let timeout;
+        const debouncedLoad = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(loadStatus, 300);
+        };
+
+        // airlineInput input event is handled above to sync with suggestions
+        flightNumInput.addEventListener('input', debouncedLoad);
+        dateInput.addEventListener('change', loadStatus);
+
+        // Load initially
+        loadStatus();
+    });
+</script>
+{% endblock %}
