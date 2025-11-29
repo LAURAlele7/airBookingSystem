@@ -2,91 +2,100 @@
 {% block content %}
 
 <style>
-    /* Layout for Search Box (Left) and Results (Right) */
+    /* Layout: Flex container for Search (Left) and Results (Right) */
     .search-container {
         display: flex;
         gap: 20px;
+        align-items: flex-start;
         margin-top: 20px;
+        margin-bottom: 40px;
     }
 
+    /* Left Column: Search Form */
     .search-panel {
-        flex: 1;
+        flex: 0 0 300px; /* Fixed width */
+        background: #f8f9fa;
         padding: 20px;
-        background-color: #f9f9f9;
         border-radius: 8px;
         border: 1px solid #ddd;
     }
 
+    /* Right Column: Dynamic Results */
     .results-panel {
-        flex: 2; /* Takes up twice as much space */
+        flex: 1; /* Takes remaining space */
+        background: #fff;
         padding: 20px;
-        border: 1px solid #ddd;
         border-radius: 8px;
-        max-height: 600px;
-        overflow-y: auto;
+        border: 1px solid #ddd;
+        min-height: 400px;
     }
 
-    /* Styling for the "Small Boxes" (Suggestions) */
-    .suggestion-box {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 5px;
-        margin-bottom: 15px;
-    }
-
-    .chip {
-        background-color: #e0e0e0;
-        padding: 5px 10px;
-        border-radius: 16px;
-        font-size: 0.85em;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-
-    .chip:hover {
-        background-color: #d0d0d0;
-    }
-
-    .chip.selected {
-        background-color: #007bff;
-        color: white;
-    }
-
-    /* Form Styling */
+    /* Form Elements */
     .form-group {
         margin-bottom: 15px;
+        position: relative;
     }
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-    }
+    .form-group label { font-weight: bold; margin-bottom: 5px; display: block; color: #555; }
     .form-group input {
         width: 100%;
-        padding: 8px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         box-sizing: border-box;
     }
 
-    /* Results Table Styling */
-    .flight-card {
+    /* Suggestion Box (Autocomplete) - Matches Customer Dashboard */
+    .suggestion-box {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+    }
+    .suggestion-item {
+        padding: 8px 10px;
+        cursor: pointer;
         border-bottom: 1px solid #eee;
-        padding: 10px 0;
     }
-    .flight-card:last-child {
-        border-bottom: none;
+    .suggestion-item:hover { background-color: #f0f0f0; }
+
+    /* Table Styles */
+    .flight-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
     }
-    .flight-header {
+    .flight-table th, .flight-table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+    }
+    .flight-table th {
+        background-color: #007bff;
+        color: white;
         font-weight: bold;
-        color: #333;
     }
-    .flight-route {
-        color: #555;
-    }
-    .flight-price {
-        color: #28a745;
+
+    .search-btn {
+        width: 100%;
+        padding: 10px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
         font-weight: bold;
-        float: right;
+        margin-top: 10px;
+    }
+    .search-btn:hover {
+        background-color: #218838;
     }
 </style>
 
@@ -96,30 +105,24 @@
     <!-- LEFT SIDE: Search Form -->
     <div class="search-panel">
         <h3>Find a Flight</h3>
-        <form id="liveSearchForm" onsubmit="return false;"> <!-- Prevent default submit -->
-            
+        <form id="liveSearchForm" onsubmit="return false;">
             <div class="form-group">
-                <label>Origin:</label>
-                <input type="text" id="originInput" name="origin" placeholder="Airport or City" autocomplete="off">
-                <!-- Small boxes for Origin -->
-                <div id="originSuggestions" class="suggestion-box">
-                    <!-- Chips injected by JS -->
-                </div>
+                <label>From</label>
+                <input type="text" id="originInput" name="origin" placeholder="City or Airport" autocomplete="off">
+                <div id="originSuggestions" class="suggestion-box"></div>
             </div>
 
             <div class="form-group">
-                <label>Destination:</label>
-                <input type="text" id="destInput" name="destination" placeholder="Airport or City" autocomplete="off">
-                <!-- Small boxes for Destination -->
-                <div id="destSuggestions" class="suggestion-box">
-                    <!-- Chips injected by JS -->
-                </div>
+                <label>To</label>
+                <input type="text" id="destInput" name="destination" placeholder="City or Airport" autocomplete="off">
+                <div id="destSuggestions" class="suggestion-box"></div>
             </div>
 
             <div class="form-group">
-                <label>Date:</label>
+                <label>Date</label>
                 <input type="date" id="dateInput" name="date">
             </div>
+            <button type="button" id="searchBtn" class="search-btn">Search Flights</button>
         </form>
     </div>
 
@@ -127,135 +130,153 @@
     <div class="results-panel">
         <h3>Available Flights</h3>
         <div id="resultsArea">
-            <p style="color: #777;">Start typing or select a location to see flights...</p>
+            <p style="color: #777; margin-top: 20px;">Loading available flights...</p>
         </div>
     </div>
 </div>
-
-<hr>
-
-<h3>Check In-Progress Flight Status</h3>
-<form method="post" action="{{ url_for('public.status') }}">
-    <label>Airline:</label>
-    <input type="text" name="airline_name">
-    <label>Flight No:</label>
-    <input type="text" name="flight_number">
-    <button type="submit">Check</button>
-</form>
-
-{% if status_flight %}
-<p>Status: {{ status_flight.status }} | Departure: {{ status_flight.departure_time }} | Arrival: {{ status_flight.arrival_time }}</p>
-{% endif %}
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const originInput = document.getElementById('originInput');
         const destInput = document.getElementById('destInput');
         const dateInput = document.getElementById('dateInput');
+        const originBox = document.getElementById('originSuggestions');
+        const destBox = document.getElementById('destSuggestions');
         const resultsArea = document.getElementById('resultsArea');
+        const searchBtn = document.getElementById('searchBtn');
 
-        // 1. Fetch available airports to populate the "Small Boxes"
+        // Utility: Debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // 1. Setup Autocomplete
         fetch("{{ url_for('public.get_airports') }}")
-            .then(response => response.json())
-            .then(airports => {
-                populateSuggestions('originSuggestions', originInput, airports);
-                populateSuggestions('destSuggestions', destInput, airports);
+            .then(res => res.json())
+            .then(data => {
+                setupAutocomplete(originInput, originBox, data.origins);
+                setupAutocomplete(destInput, destBox, data.destinations);
             });
 
-        // Helper to create chips
-        function populateSuggestions(containerId, inputElement, data) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            data.forEach(code => {
-                const chip = document.createElement('span');
-                chip.className = 'chip';
-                chip.textContent = code;
-                chip.onclick = () => {
-                    // Set input value
-                    inputElement.value = code;
-                    // Trigger search immediately
-                    performLiveSearch();
-                };
-                container.appendChild(chip);
+        function setupAutocomplete(input, box, data) {
+            input.addEventListener('focus', () => {
+                renderList(data, input, box);
+                box.style.display = 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !box.contains(e.target)) {
+                    box.style.display = 'none';
+                }
+            });
+            input.addEventListener('input', () => {
+                const val = input.value.toLowerCase();
+                const filtered = data.filter(item => 
+                    item.code.toLowerCase().includes(val) || 
+                    item.city.toLowerCase().includes(val)
+                );
+                renderList(filtered, input, box);
+                box.style.display = 'block';
             });
         }
 
-        // 2. Event Listeners for Live Search
-        // Trigger search whenever user types or changes date
-        originInput.addEventListener('input', performLiveSearch);
-        destInput.addEventListener('input', performLiveSearch);
-        dateInput.addEventListener('change', performLiveSearch);
-
-        // 3. The Search Logic
-        function performLiveSearch() {
-            const origin = originInput.value;
-            const dest = destInput.value;
-            const date = dateInput.value;
-
-            // If everything is empty, clear results
-            if (!origin && !dest && !date) {
-                resultsArea.innerHTML = '<p style="color: #777;">Start typing or select a location to see flights...</p>';
+        function renderList(list, input, box) {
+            box.innerHTML = '';
+            if(list.length === 0) {
+                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches</div>';
                 return;
             }
-
-            // Build Query String
-            const params = new URLSearchParams({
-                origin: origin,
-                destination: dest,
-                date: date
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = `${item.city} (${item.code})`;
+                div.onclick = () => {
+                    input.value = item.code;
+                    box.style.display = 'none';
+                    loadFlights(); // Trigger search immediately
+                };
+                box.appendChild(div);
             });
+        }
+
+        // 2. Load Flights
+        function loadFlights() {
+            const origin = originInput.value.trim();
+            const destination = destInput.value.trim();
+            const date = dateInput.value;
+
+            const params = new URLSearchParams();
+            if (origin) params.append('origin', origin);
+            if (destination) params.append('destination', destination);
+            if (date) params.append('date', date);
 
             fetch(`{{ url_for('public.live_search') }}?${params.toString()}`)
-                .then(response => response.json())
+                .then(res => res.json())
                 .then(flights => {
                     renderResults(flights);
                 })
-                .catch(err => console.error('Search failed', err));
+                .catch(err => {
+                    console.error(err);
+                    resultsArea.innerHTML = `<p style="color: red;">Error loading flights.</p>`;
+                });
         }
 
-        // 4. Render Results Logic
+        const debouncedSearch = debounce(loadFlights, 300);
+
+        originInput.addEventListener('input', debouncedSearch);
+        destInput.addEventListener('input', debouncedSearch);
+        dateInput.addEventListener('change', loadFlights);
+        searchBtn.addEventListener('click', loadFlights);
+
+        // Trigger immediately on page load
+        loadFlights();
+
         function renderResults(flights) {
             resultsArea.innerHTML = '';
-
             if (flights.length === 0) {
                 resultsArea.innerHTML = '<p>No flights found matching your criteria.</p>';
                 return;
             }
 
             const table = document.createElement('table');
-            table.border = "1";
-            table.style.width = "100%";
-            table.style.borderCollapse = "collapse";
+            table.className = 'flight-table';
             
-            // Header
             const thead = `
-                <tr style="background: #eee;">
-                    <th>Airline</th>
-                    <th>Flight No</th>
-                    <th>Route</th>
-                    <th>Time</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                </tr>
+                <thead>
+                    <tr>
+                        <th>Airline</th>
+                        <th>Flight</th>
+                        <th>Route</th>
+                        <th>Time</th>
+                        <th>Price</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
             `;
             table.innerHTML = thead;
-
+            
+            const tbody = document.createElement('tbody');
             flights.forEach(f => {
+                const depDisplay = f.dep_city ? `${f.dep_city} (${f.departure_airport})` : f.departure_airport;
+                const arrDisplay = f.arr_city ? `${f.arr_city} (${f.arrival_airport})` : f.arrival_airport;
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${f.airline_name}</td>
                     <td>${f.flight_number}</td>
-                    <td>${f.departure_airport} &rarr; ${f.arrival_airport}</td>
-                    <td>
-                        <small>Dep: ${f.departure_time}</small><br>
-                        <small>Arr: ${f.arrival_time}</small>
-                    </td>
+                    <td>${depDisplay} &rarr; ${arrDisplay}</td>
+                    <td>${f.departure_time}</td>
                     <td style="font-weight:bold; color:green;">$${f.price}</td>
-                    <td>${f.status}</td>
+                    <td>
+                        <a href="{{ url_for('auth.login') }}" style="display: inline-block; background: #6c757d; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Login to Book</a>
+                    </td>
                 `;
-                table.appendChild(row);
+                tbody.appendChild(row);
             });
-
+            table.appendChild(tbody);
             resultsArea.appendChild(table);
         }
     });
