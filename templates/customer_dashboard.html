@@ -269,6 +269,7 @@
                         <th>Flight</th>
                         <th>Route</th>
                         <th>Time</th>
+                        <th>Seats</th>
                         <th>Price</th>
                         <th>Action</th>
                     </tr>
@@ -284,15 +285,24 @@
                 // Construct the URL for the booking page
                 const bookUrl = "{{ url_for('customer.book_ticket') }}?airline=" + encodeURIComponent(f.airline_name) + "&flight_number=" + encodeURIComponent(f.flight_number);
 
+                // Determine seat color
+                let seatColor = 'green';
+                if (f.available_seats === 0) seatColor = 'red';
+                else if (f.available_seats < 10) seatColor = 'orange';
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${f.airline_name}</td>
                     <td>${f.flight_number}</td>
                     <td>${depDisplay} &rarr; ${arrDisplay}</td>
                     <td>${f.departure_time}</td>
+                    <td style="font-weight:bold; color:${seatColor};">${f.available_seats}</td>
                     <td style="font-weight:bold; color:green;">$${f.price}</td>
                     <td>
-                        <a href="${bookUrl}" style="display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Book</a>
+                        ${f.available_seats > 0 
+                            ? `<a href="${bookUrl}" style="display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Book</a>`
+                            : `<span style="color: #999; font-style: italic;">Full</span>`
+                        }
                     </td>
                 `;
                 tbody.appendChild(row);

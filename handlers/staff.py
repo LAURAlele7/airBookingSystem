@@ -285,10 +285,18 @@ def add_airport():
             flash("Name and city are required.")
         else:
             try:
+                # 1. Check if the city exists in the city table
+                existing_city = query_one("SELECT city_name FROM city WHERE city_name=%s", (city,))
+                
+                # 2. If not, insert the city first to satisfy FK constraint
+                if not existing_city:
+                    execute_sql("INSERT INTO city (city_name) VALUES (%s)", (city,))
+                
+                # 3. Now insert the airport
                 execute_sql("INSERT INTO airport (name, city) VALUES (%s, %s)", (name, city))
                 flash("Airport added.")
             except Exception as e:
-                flash(f"Error: {e}")
+                flash(f"Error: {e}", "error")
     
     # Fetch all airports to display
     airports = query_all("SELECT * FROM airport ORDER BY city, name")
@@ -314,7 +322,7 @@ def add_airplane():
                 )
                 flash("Airplane added.")
             except Exception as e:
-                flash(f"Error: {e}")
+                flash(f"Error: {e}", "error")
     
     # Fetch existing airplanes for this airline
     airplanes = query_all("SELECT * FROM airplane WHERE airline_name=%s ORDER BY airplane_id", (airline_name,))
@@ -327,6 +335,9 @@ def add_airplane():
 def add_flight():
     staff, airline_name = _get_staff_and_airline()
 
+    # Fetch all airports for the option list
+    airports = query_all("SELECT name, city FROM airport ORDER BY city, name")
+
     if request.method == "POST":
         flight_number = request.form.get("flight_number", "").strip()
         departure_airport = request.form.get("departure_airport", "").strip()
@@ -337,29 +348,46 @@ def add_flight():
         status = request.form.get("status", "upcoming")
         airplane_assigned = request.form.get("airplane_assigned", "").strip()
 
-        if not (flight_number and departure_airport and arrival_airport and departure_time and arrival_time and price and airplane_assigned):
+        # Validation: Check if departure and arrival are the same
+        if departure_airport and arrival_airport and departure_airport == arrival_airport:
+            flash("Error: Departure and Arrival airports cannot be the same.", "error")
+        elif not (flight_number and departure_airport and arrival_airport and departure_time and arrival_time and price and airplane_assigned):
             flash("All fields are required.")
         else:
-            try:
-                execute_sql(
-                    """
-                    INSERT INTO flight
-                    (flight_number, airline_name, departure_airport, arrival_airport,
-                     departure_time, arrival_time, price, status, airplane_assigned)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        flight_number, airline_name, departure_airport, arrival_airport,
-                        departure_time, arrival_time, price, status, airplane_assigned,
-                    ),
-                )
-                flash("Flight created.")
-            except Exception as e:
-                flash(f"Error: {e}")
+            # 1. Fetch the seat capacity of the assigned airplane
+            airplane = query_one(
+                "SELECT seat_capacity FROM airplane WHERE airplane_id=%s AND airline_name=%s",
+                (airplane_assigned, airline_name)
+            )
+            
+            if not airplane:
+                flash(f"Error: Airplane '{airplane_assigned}' not found for this airline.", "error")
+            else:
+                # 2. Use capacity as the initial remaining_seats
+                initial_seats = airplane['seat_capacity']
+                
+                try:
+                    execute_sql(
+                        """
+                        INSERT INTO flight
+                        (flight_number, airline_name, departure_airport, arrival_airport,
+                         departure_time, arrival_time, price, status, airplane_assigned, remaining_seats)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            flight_number, airline_name, departure_airport, arrival_airport,
+                            departure_time, arrival_time, price, status, airplane_assigned, initial_seats,
+                        ),
+                    )
+                    flash("Flight created.")
+                except Exception as e:
+                    flash(f"Error: {e}", "error")
 
     # Fetch recent flights for display
     flights = query_all("SELECT * FROM flight WHERE airline_name=%s ORDER BY departure_time DESC LIMIT 20", (airline_name,))
-    return render_template("staff_admin_flight.html", airline_name=airline_name, flights=flights)
+    
+    # Pass airports to template
+    return render_template("staff_admin_flight.html", airline_name=airline_name, flights=flights, airports=airports)
 
 
 @staff_bp.route("/admin/agent", methods=["GET", "POST"])
@@ -384,7 +412,7 @@ def add_agent():
                     )
                     flash("Agent associated with airline.")
                 except Exception as e:
-                    flash(f"Error: {e}")
+                    flash(f"Error: {e}", "error")
     
     # Fetch existing agents
     agents = query_all("SELECT agent_email FROM work_with WHERE airline_name=%s", (airline_name,))
@@ -503,64 +531,70 @@ def get_customers():
     except Exception as e:
         return jsonify([])
 
+
 @staff_bp.route("/api/get_airports")
 @login_required(role="staff")
 def get_airports():
     """
-    Fetch distinct origins and destinations based on the current time filter.
-    If range='all', show all airports used in any flight.
-    If range='30' (default), show only airports used in flights in the next 30 days.
+    Fetch distinct origins and destinations for both 'Next 30 Days' and 'All Time'.
+    Returns JSON with 4 lists.
     """
     _, airline_name = _get_staff_and_airline()
-    
-    date_range = request.args.get("range", "30")
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
-
-    # Base condition: Airline
-    conditions = ["f.airline_name = %s"]
     params = [airline_name]
 
-    # Time filtering logic (matches search_flights_api)
-    if start_date or end_date:
-        if start_date:
-            conditions.append("f.departure_time >= %s")
-            params.append(start_date)
-        if end_date:
-            conditions.append("f.departure_time <= %s")
-            params.append(end_date)
-    elif date_range == "30":
-        conditions.append("f.departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)")
-    
-    where_clause = " AND ".join(conditions)
-
     try:
-        # Origins
-        sql_origins = f"""
+        # 1. ALL TIME
+        sql_all_origins = """
             SELECT DISTINCT f.departure_airport AS code, a.city
             FROM flight f
             JOIN airport a ON f.departure_airport = a.name
-            WHERE {where_clause}
+            WHERE f.airline_name = %s
             ORDER BY a.city, f.departure_airport
         """
-        origins = query_all(sql_origins, tuple(params))
+        all_origins = query_all(sql_all_origins, tuple(params))
 
-        # Destinations
-        sql_dests = f"""
+        sql_all_dests = """
             SELECT DISTINCT f.arrival_airport AS code, a.city
             FROM flight f
             JOIN airport a ON f.arrival_airport = a.name
-            WHERE {where_clause}
+            WHERE f.airline_name = %s
             ORDER BY a.city, f.arrival_airport
         """
-        dests = query_all(sql_dests, tuple(params))
+        all_dests = query_all(sql_all_dests, tuple(params))
 
-        return jsonify({"origins": origins, "destinations": dests})
+        # 2. NEXT 30 DAYS
+        sql_30_origins = """
+            SELECT DISTINCT f.departure_airport AS code, a.city
+            FROM flight f
+            JOIN airport a ON f.departure_airport = a.name
+            WHERE f.airline_name = %s
+              AND f.departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
+            ORDER BY a.city, f.departure_airport
+        """
+        next_30_origins = query_all(sql_30_origins, tuple(params))
+
+        sql_30_dests = """
+            SELECT DISTINCT f.arrival_airport AS code, a.city
+            FROM flight f
+            JOIN airport a ON f.arrival_airport = a.name
+            WHERE f.airline_name = %s
+              AND f.departure_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
+            ORDER BY a.city, f.arrival_airport
+        """
+        next_30_dests = query_all(sql_30_dests, tuple(params))
+
+        return jsonify({
+            "all_origins": all_origins,
+            "all_destinations": all_dests,
+            "next_30_origins": next_30_origins,
+            "next_30_destinations": next_30_dests
+        })
     except Exception as e:
         print(f"Error getting airports: {e}")
-        return jsonify({"origins": [], "destinations": []})
-
-@staff_bp.route("/api/search_flights")
+        return jsonify({
+            "all_origins": [], "all_destinations": [],
+            "next_30_origins": [], "next_30_destinations": []
+        })
 
 @staff_bp.route("/api/search_flights")
 @login_required(role="staff")

@@ -113,6 +113,7 @@
         .status-in-progress { color: #ffc107; font-weight: bold; } /* Yellow/Amber */
         .status-delayed { color: #dc3545; font-weight: bold; } /* Red */
         .status-cancelled { color: #6c757d; font-weight: bold; } /* Gray */
+        .status-arrived { color: #3316c4; font-weight: bold; } /* Teal */
         
         /* 表单通用样式 */
         .form-group {
@@ -149,19 +150,23 @@
         .flash-messages {
             margin-bottom: 20px;
         }
-        .flash-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            padding: 10px;
+        
+        /* Default: Green for all messages (success, info, message, etc.) */
+        .flash-messages div {
+            padding: 15px;
             border-radius: 4px;
+            margin-bottom: 10px;
+            background-color: #d4edda; /* Green background */
+            color: #155724;            /* Green text */
+            border: 1px solid #c3e6cb; /* Green border */
         }
-        .flash-error, .flash-danger {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            padding: 10px;
-            border-radius: 4px;
+
+        /* Exception: Red for error/danger */
+        .flash-messages .flash-error, 
+        .flash-messages .flash-danger {
+            background-color: #f8d7da; /* Red background */
+            color: #721c24;            /* Red text */
+            border-color: #f5c6cb;     /* Red border */
         }
     </style>
     

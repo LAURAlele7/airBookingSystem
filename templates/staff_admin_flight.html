@@ -14,13 +14,21 @@
                 <label>Flight Number:</label><br>
                 <input type="text" name="flight_number" required style="width: 100%;">
             </div>
+            
+            <!-- Datalist for Airport Options -->
+            <datalist id="airport_list">
+                {% for a in airports %}
+                <option value="{{ a.name }}">{{ a.city }}</option>
+                {% endfor %}
+            </datalist>
+
             <div style="margin-bottom: 10px;">
                 <label>Departure Airport:</label><br>
-                <input type="text" name="departure_airport" required style="width: 100%;">
+                <input type="text" name="departure_airport" list="airport_list" required style="width: 100%;" placeholder="Type to search or select...">
             </div>
             <div style="margin-bottom: 10px;">
                 <label>Arrival Airport:</label><br>
-                <input type="text" name="arrival_airport" required style="width: 100%;">
+                <input type="text" name="arrival_airport" list="airport_list" required style="width: 100%;" placeholder="Type to search or select...">
             </div>
             <div style="margin-bottom: 10px;">
                 <label>Departure Time:</label><br>

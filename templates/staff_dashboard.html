@@ -221,158 +221,151 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const originInput = document.getElementById('originInput');
-        const destInput = document.getElementById('destInput');
-        const startDate = document.getElementById('startDate');
-        const endDate = document.getElementById('endDate');
-        const originBox = document.getElementById('originSuggestions');
-        const destBox = document.getElementById('destSuggestions');
-        const rangeInputs = document.querySelectorAll('input[name="dateRange"]');
+    document.addEventListener("DOMContentLoaded", () => {
+        const originInput = document.getElementById("originInput");
+        const destInput   = document.getElementById("destInput");
+        const originBox   = document.getElementById("originSuggestions");
+        const destBox     = document.getElementById("destSuggestions");
+        const startDate   = document.getElementById("startDate");
+        const endDate     = document.getElementById("endDate");
 
-        // 1. Attach Event Listeners
-        // When dates or range change, we need to refresh both the flights AND the autocomplete list
-        const inputs = [startDate, endDate];
-        inputs.forEach(input => {
-            input.addEventListener('change', () => {
+        let airportData = null;
+
+        // ----------- Load Airport Lists Once -----------
+        fetch("{{ url_for('staff.get_airports') }}")
+            .then(r => r.json())
+            .then(data => {
+                airportData = data;
+                updateAutocompleteLists();
+            });
+
+        // ----------- Switch Airport List When Range Toggles -----------
+        document.querySelectorAll("input[name='dateRange']").forEach(r => {
+            r.addEventListener("change", () => {
+                originInput.value = "";
+                destInput.value = "";
+                updateAutocompleteLists();
                 fetchFlights();
-                loadAirports(); // Reload suggestions based on new time range
             });
         });
 
-        rangeInputs.forEach(input => {
-            input.addEventListener('change', () => {
-                fetchFlights();
-                loadAirports(); // Reload suggestions based on new time range
-            });
+        // ----------- Date Inputs Trigger Search -----------
+        [startDate, endDate].forEach(el =>
+            el.addEventListener("change", fetchFlights)
+        );
+
+        // ----------- Global Click: Hide boxes -----------
+        document.addEventListener("click", (e) => {
+            if (!originInput.contains(e.target) && !originBox.contains(e.target))
+                originBox.style.display = "none";
+            if (!destInput.contains(e.target) && !destBox.contains(e.target))
+                destBox.style.display = "none";
         });
 
-        // Initial load
-        loadAirports();
-
-        function loadAirports() {
-            const formData = new FormData(document.getElementById('filterForm'));
-            const params = new URLSearchParams(formData);
-            const rangeVal = document.querySelector('input[name="dateRange"]:checked').value;
-            params.append('range', rangeVal);
-
-            fetch("{{ url_for('staff.get_airports') }}?" + params.toString())
-                .then(response => response.json())
-                .then(data => {
-                    // Update the autocomplete handlers with new data
-                    setupAutocomplete(originInput, originBox, data.origins);
-                    setupAutocomplete(destInput, destBox, data.destinations);
-                })
-                .catch(err => console.error('Failed to load airports', err));
-        }
-
-        function setupAutocomplete(input, box, data) {
-            // Clone input to remove old event listeners (simple way to reset)
-            const newInput = input.cloneNode(true);
-            input.parentNode.replaceChild(newInput, input);
-            input = newInput; // Update reference
-            
-            // Re-attach necessary ID/Variables if needed by other parts (fetchFlights uses ID)
-            
-            input.addEventListener('focus', () => {
-                renderList(data, input, box);
-                box.style.display = 'block';
-            });
-            
-            // Close on click outside
-            document.addEventListener('click', (e) => {
-                if (!input.contains(e.target) && !box.contains(e.target)) {
-                    box.style.display = 'none';
-                }
-            });
-
-            input.addEventListener('input', () => {
-                const val = input.value.toLowerCase();
-                const filtered = data.filter(item => 
-                    item.code.toLowerCase().includes(val) || 
-                    item.city.toLowerCase().includes(val)
+        // ----------- Build Autocomplete -----------
+        function setupAutocomplete(input, box) {
+            input.oninput = () => {
+                const items = JSON.parse(input.dataset.items || "[]");
+                const q = input.value.toLowerCase();
+                const filtered = items.filter(v =>
+                    v.code.toLowerCase().includes(q) ||
+                    v.city.toLowerCase().includes(q)
                 );
                 renderList(filtered, input, box);
-                box.style.display = 'block';
-                fetchFlights(); 
-            });
+                box.style.display = "block";
+                fetchFlights();
+            };
+
+            input.onfocus = () => {
+                const items = JSON.parse(input.dataset.items || "[]");
+                renderList(items, input, box);
+                box.style.display = "block";
+            };
         }
 
-        function renderList(list, input, box) {
-            box.innerHTML = '';
-            if(list.length === 0) {
-                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches in this time range</div>';
+        // ----------- Render Autocomplete Items -----------
+        function renderList(items, input, box) {
+            box.innerHTML = "";
+            if (!items.length) {
+                box.innerHTML = `<div class="suggestion-item" style="color:#888">No matches</div>`;
                 return;
             }
-            list.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item';
+            items.forEach(item => {
+                const div = document.createElement("div");
+                div.className = "suggestion-item";
                 div.textContent = `${item.city} (${item.code})`;
                 div.onclick = () => {
                     input.value = item.code;
-                    box.style.display = 'none';
-                    fetchFlights(); 
+                    box.style.display = "none";
+                    fetchFlights();
                 };
                 box.appendChild(div);
             });
         }
-    });
 
-    // 3. The Fetch Function
-    function fetchFlights() {
-        const formData = new FormData(document.getElementById('filterForm'));
-        const params = new URLSearchParams(formData);
-        
-        // Ensure we get the current input values directly if FormData misses dynamic updates
-        params.set('origin', document.getElementById('originInput').value);
-        params.set('destination', document.getElementById('destInput').value);
+        // ----------- Update Autocomplete Source When Switching Tabs -----------
+        function updateAutocompleteLists() {
+            if (!airportData) return;
 
-        const rangeVal = document.querySelector('input[name="dateRange"]:checked').value;
-        params.append('range', rangeVal);
+            const mode = document.querySelector("input[name='dateRange']:checked").value;
 
-        fetch("{{ url_for('staff.search_flights_api') }}?" + params.toString())
-            .then(response => response.json())
-            .then(data => {
-                const tbody = document.getElementById('flightsTableBody');
-                tbody.innerHTML = '';
+            const origins =
+                mode === "30"
+                    ? airportData.next_30_origins
+                    : airportData.all_origins;
 
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#666;">No flights found matching criteria.</td></tr>';
-                    return;
-                }
+            const dests =
+                mode === "30"
+                    ? airportData.next_30_destinations
+                    : airportData.all_destinations;
 
-                data.forEach(f => {
-                    const statusClass = 'status-' + f.status.toLowerCase().replace(' ', '-');
-                    const depDisplay = f.dep_city ? `${f.dep_city} (${f.departure_airport})` : f.departure_airport;
-                    const arrDisplay = f.arr_city ? `${f.arr_city} (${f.arrival_airport})` : f.arrival_airport;
+            originInput.dataset.items = JSON.stringify(origins);
+            destInput.dataset.items   = JSON.stringify(dests);
 
-                    const row = `
-                        <tr>
-                            <td>${f.flight_number}</td>
-                            <td>${f.airplane_assigned}</td>
-                            <td>${depDisplay}</td>
-                            <td>${arrDisplay}</td>
-                            <td>${f.departure_time}</td>
-                            <td>${f.arrival_time}</td>
-                            <td><span class="status-badge ${statusClass}">${f.status}</span></td>
-                        </tr>
-                    `;
-                    tbody.innerHTML += row;
-                });
-            })
-            .catch(err => console.error('Error fetching flights:', err));
-    }
+            setupAutocomplete(originInput, originBox);
+            setupAutocomplete(destInput, destBox);
+        }
 
-    function resetFilters() {
-        document.getElementById('filterForm').reset();
-        document.getElementById('originInput').value = ''; // Explicit clear
-        document.getElementById('destInput').value = '';
+        // ----------- Fetch Flights -----------
+        function fetchFlights() {
+            const params = new URLSearchParams();
+            params.set("origin", originInput.value);
+            params.set("destination", destInput.value);
+            params.set("start_date", startDate.value);
+            params.set("end_date", endDate.value);
+            params.set("range", document.querySelector("input[name='dateRange']:checked").value);
+
+            fetch("{{ url_for('staff.search_flights_api') }}?" + params.toString())
+                .then(r => r.json())
+                .then(updateTable);
+        }
+
+        // ----------- Render Table -----------
+        function updateTable(data) {
+            const tbody = document.getElementById("flightsTableBody");
+            tbody.innerHTML = "";
+
+            if (!data.length) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#666">No flights found.</td></tr>`;
+                return;
+            }
+
+            data.forEach(f => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${f.flight_number}</td>
+                        <td>${f.airplane_assigned}</td>
+                        <td>${f.dep_city ? f.dep_city + " (" + f.departure_airport + ")" : f.departure_airport}</td>
+                        <td>${f.arr_city ? f.arr_city + " (" + f.arrival_airport + ")" : f.arrival_airport}</td>
+                        <td>${f.departure_time}</td>
+                        <td>${f.arrival_time}</td>
+                        <td><span class="status-badge status-${f.status.toLowerCase().replace(" ", "-")}">${f.status}</span></td>
+                    </tr>`;
+            });
+        }
+
+        // Initial load
         fetchFlights();
-        // Also reload airports to default state
-        // We need to manually trigger the loadAirports logic or just reload page
-        // Accessing the internal function is hard, so we can just trigger a change event
-        document.querySelector('input[name="dateRange"][value="30"]').checked = true;
-        document.querySelector('input[name="dateRange"]').dispatchEvent(new Event('change'));
-    }
+    });
 </script>
 {% endblock %}

@@ -67,13 +67,18 @@ def search_flights_api():
     where_clause = " AND ".join(conditions)
 
     # Join with airport table to get City Names for display
+    # Join with airplane to get total capacity
+    # Subquery to get sold tickets count
     sql = f"""
     SELECT f.*, 
-               dep.city as dep_city, 
-               arr.city as arr_city
+           dep.city as dep_city, 
+           arr.city as arr_city,
+           ap.seat_capacity,
+           (SELECT COUNT(*) FROM ticket t WHERE t.airline_name = f.airline_name AND t.flight_number = f.flight_number) as sold_cnt
         FROM flight f
         LEFT JOIN airport dep ON f.departure_airport = dep.name
         LEFT JOIN airport arr ON f.arrival_airport = arr.name
+        LEFT JOIN airplane ap ON f.airplane_assigned = ap.airplane_id AND f.airline_name = ap.airline_name
         WHERE {where_clause}
         ORDER BY f.departure_time ASC
         LIMIT 50
@@ -87,10 +92,13 @@ def search_flights_api():
                 f['departure_time'] = f['departure_time'].strftime('%Y-%m-%d %H:%M')
             if isinstance(f.get('arrival_time'), datetime):
                 f['arrival_time'] = f['arrival_time'].strftime('%Y-%m-%d %H:%M')
-            # Decimal to float/str if needed, though simplejson usually handles it. 
-            # If using standard json, might need conversion.
             if 'price' in f:
                 f['price'] = str(f['price'])
+            
+            # Calculate available seats
+            cap = f.get('seat_capacity') or 0
+            sold = f.get('sold_cnt') or 0
+            f['available_seats'] = max(0, cap - sold)
 
         return jsonify(flights)
     except Exception as e:

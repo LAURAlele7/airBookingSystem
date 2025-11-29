@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}My Flight History{% endblock %}
+
+{% block head_extra %}
+<style>
+    .dashboard-container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+    .dashboard-content { display: flex; gap: 20px; align-items: flex-start; }
+    
+    /* Left Column: Filters */
+    .filter-column {
+        flex: 0 0 300px;
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+    
+    /* Right Column: Results */
+    .results-column {
+        flex: 1;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        min-height: 500px;
+    }
+
+    .form-group { margin-bottom: 15px; position: relative; }
+    .form-group label { font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 5px; }
+    .form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    
+    /* Suggestion Box */
+    .suggestion-box {
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: white; border: 1px solid #ddd; border-top: none;
+        z-index: 1000; max-height: 200px; overflow-y: auto; display: none;
+    }
+    .suggestion-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    .suggestion-item:hover { background-color: #f0f0f0; }
+
+    .flight-table { width: 100%; border-collapse: collapse; }
+    .flight-table th, .flight-table td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
+    .flight-table th { background-color: #007bff; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h2>My Flight History</h2>
+    <a href="{{ url_for('customer.dashboard') }}" style="text-decoration: none; color: #007bff; font-weight: bold;">&larr; Back to Dashboard</a>
+
+    
+    <div class="dashboard-content">
+        <!-- Left Column: Filters -->
+        <div class="filter-column">
+            <h3>Filter Flights</h3>
+            <form method="post" id="filterForm">
+                <div class="form-group">
+                    <label>Origin:</label>
+                    <input type="text" name="origin" id="originInput" class="form-control" placeholder="City or Airport" autocomplete="off" value="{{ request.form.get('origin', '') }}">
+                    <div id="originSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Destination:</label>
+                    <input type="text" name="destination" id="destInput" class="form-control" placeholder="City or Airport" autocomplete="off" value="{{ request.form.get('destination', '') }}">
+                    <div id="destSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Start Date:</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ request.form.get('start_date', '') }}">
+                </div>
+                <div class="form-group">
+                    <label>End Date:</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ request.form.get('end_date', '') }}">
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 10px;">Filter</button>
+                <a href="{{ url_for('customer.flights') }}" style="display:block; text-align:center; margin-top:10px; font-size:0.9em; color:#666;">Reset</a>
+            </form>
+        </div>
+
+        <!-- Right Column: Results -->
+        <div class="results-column">
+            <h3>Flight List</h3>
+            <table class="flight-table">
+                <thead>
+                    <tr>
+                        <th>Airline</th>
+                        <th>Flight #</th>
+                        <th>Route</th>
+                        <th>Departure</th>
+                        <th>Arrival</th>
+                        <th>Status</th>
+                        <th>Purchase Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if flights %}
+                        {% for f in flights %}
+                        <tr>
+                            <td>{{ f.airline_name }}</td>
+                            <td>{{ f.flight_number }}</td>
+                            <td>{{ f.departure_airport }} &rarr; {{ f.arrival_airport }}</td>
+                            <td>{{ f.departure_time }}</td>
+                            <td>{{ f.arrival_time }}</td>
+                            <td>
+                                <span style="padding: 4px 8px; border-radius: 4px; font-size: 0.9em;
+                                    {% if f.status == 'upcoming' %}background: #d4edda; color: #155724;
+                                    {% elif f.status == 'delayed' %}background: #fff3cd; color: #856404;
+                                    {% else %}background: #e2e3e5; color: #383d41;{% endif %}">
+                                    {{ f.status }}
+                                </span>
+                            </td>
+                            <td>{{ f.purchase_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" style="padding: 20px; text-align: center; color: #666;">
+                                No flights found matching your criteria.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const originInput = document.getElementById('originInput');
+        const destInput = document.getElementById('destInput');
+        const originBox = document.getElementById('originSuggestions');
+        const destBox = document.getElementById('destSuggestions');
+
+        // Fetch all airports for autocomplete
+        // Note: We reuse the public search API or create a new one. 
+        // Assuming a public endpoint exists or we use the staff one if accessible (unlikely for customer).
+        // We'll use the public search endpoint logic here.
+        fetch("{{ url_for('public.get_airports') }}?q=") 
+            .then(res => res.json())
+            .then(data => {
+                // Data format from public search: [{code, city, name}, ...]
+                setupAutocomplete(originInput, originBox, data);
+                setupAutocomplete(destInput, destBox, data);
+            })
+            .catch(err => console.log("Error loading airports", err));
+
+        function setupAutocomplete(input, box, data) {
+            input.addEventListener('input', function() {
+                const val = this.value.toLowerCase();
+                const filtered = data.filter(item => 
+                    item.code.toLowerCase().includes(val) || 
+                    item.city.toLowerCase().includes(val) ||
+                    item.name.toLowerCase().includes(val)
+                );
+                renderList(filtered, input, box);
+                box.style.display = 'block';
+            });
+
+            input.addEventListener('focus', function() {
+                if(input.value) input.dispatchEvent(new Event('input'));
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !box.contains(e.target)) {
+                    box.style.display = 'none';
+                }
+            });
+        }
+
+        function renderList(list, input, box) {
+            box.innerHTML = '';
+            if (list.length === 0) {
+                box.innerHTML = '<div class="suggestion-item" style="color:#999">No matches</div>';
+                return;
+            }
+            list.slice(0, 10).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = `${item.city} (${item.code}) - ${item.name}`;
+                div.onclick = function() {
+                    input.value = item.code;
+                    box.style.display = 'none';
+                };
+                box.appendChild(div);
+            });
+        }
+    });
+</script>
+{% endblock %}

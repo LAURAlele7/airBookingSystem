@@ -238,8 +238,8 @@
                         <th>Flight</th>
                         <th>Route</th>
                         <th>Time</th>
-                        <th>Price</th>
                         <th>Seats</th>
+                        <th>Price</th>
                         <th>Purchase for Customer</th>
                     </tr>
                 </thead>
@@ -255,14 +255,18 @@
                 // Construct URL for the new booking page
                 const bookUrl = "{{ url_for('agent.book_ticket') }}?airline=" + encodeURIComponent(f.airline_name) + "&flight_number=" + encodeURIComponent(f.flight_number);
 
+                let seatColor = 'green';
+                if (f.remaining_seats === 0) seatColor = 'red';
+                else if (f.remaining_seats < 10) seatColor = 'orange';
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${f.airline_name}</td>
                     <td>${f.flight_number}</td>
                     <td>${depDisplay} &rarr; ${arrDisplay}</td>
                     <td>${f.departure_time}</td>
+                    <td style="font-weight:bold; color:${seatColor};">${f.remaining_seats}</td>
                     <td style="font-weight:bold; color:green;">$${f.price}</td>
-                    <td>${f.remaining_seats}</td>
                     <td>
                         <a href="${bookUrl}" style="display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Book for Customer</a>
                     </td>
