@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Transactions{% endblock %}
+
+{% block head_extra %}
+<style>
+    .container { padding: 20px; }
+    .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    
+    /* Layout: Flex container */
+    .transaction-content {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        margin-bottom: 40px;
+    }
+
+    /* Left Column: Search Form */
+    .search-column {
+        flex: 0 0 300px;
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+
+    /* Right Column: Results */
+    .results-column {
+        flex: 1;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        min-height: 400px;
+    }
+
+    /* Form Elements */
+    .form-group { margin-bottom: 15px; position: relative; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; display: block; color: #555; }
+    .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    
+    /* Suggestion Box */
+    .suggestion-box {
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: white; border: 1px solid #ddd; border-top: none;
+        z-index: 1000; max-height: 200px; overflow-y: auto; display: none;
+    }
+    .suggestion-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .suggestion-item:hover { background-color: #f0f0f0; }
+
+    /* Table Styles */
+    .flight-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .flight-table th, .flight-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .flight-table th { background-color: #007bff; color: white; font-weight: bold; }
+    
+    .btn-back { text-decoration: none; padding: 8px 16px; background: #6c757d; color: white; border-radius: 4px; }
+    .btn-back:hover { background: #5a6268; }
+    
+    .search-btn { width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+    .search-btn:hover { background-color: #218838; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-row">
+        <h2>Transaction History</h2>
+        <a href="{{ url_for('agent.dashboard') }}" class="btn-back">&larr; Back to Dashboard</a>
+    </div>
+
+    <div class="transaction-content">
+        <!-- LEFT: Search Form -->
+        <div class="search-column">
+            <h3>Filter Transactions</h3>
+            <form id="filterForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label>Origin</label>
+                    <input type="text" id="originInput" placeholder="City or Airport" autocomplete="off">
+                    <div id="originSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input type="text" id="destInput" placeholder="City or Airport" autocomplete="off">
+                    <div id="destSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Customer Email</label>
+                    <input type="text" id="emailInput" placeholder="customer@example.com" autocomplete="off">
+                    <div id="emailSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="startDateInput">
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" id="endDateInput">
+                </div>
+                <button type="button" id="filterBtn" class="search-btn">Filter Results</button>
+            </form>
+        </div>
+
+        <!-- RIGHT: Results Table -->
+        <div class="results-column">
+            <h3>Transaction Results</h3>
+            <div id="resultsArea">
+                <p style="color: #777; margin-top: 20px;">Loading transactions...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const originInput = document.getElementById('originInput');
+        const destInput = document.getElementById('destInput');
+        const emailInput = document.getElementById('emailInput');
+        const startDateInput = document.getElementById('startDateInput');
+        const endDateInput = document.getElementById('endDateInput');
+        
+        const originBox = document.getElementById('originSuggestions');
+        const destBox = document.getElementById('destSuggestions');
+        const emailBox = document.getElementById('emailSuggestions');
+        
+        const resultsArea = document.getElementById('resultsArea');
+        const filterBtn = document.getElementById('filterBtn');
+
+        // 1. Fetch Autocomplete Data
+        // Airports
+        fetch("{{ url_for('agent.get_agent_airports') }}")
+            .then(res => res.json())
+            .then(data => {
+                setupAutocomplete(originInput, originBox, data.origins, 'airport');
+                setupAutocomplete(destInput, destBox, data.destinations, 'airport');
+            });
+
+        // Customers
+        fetch("{{ url_for('agent.api_agent_customers') }}")
+            .then(res => res.json())
+            .then(data => {
+                setupAutocomplete(emailInput, emailBox, data, 'email');
+            });
+
+        // Generic Autocomplete Setup
+        function setupAutocomplete(input, box, data, type) {
+            input.addEventListener('focus', () => {
+                renderList(data, input, box, type);
+                box.style.display = 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !box.contains(e.target)) {
+                    box.style.display = 'none';
+                }
+            });
+            input.addEventListener('input', () => {
+                const val = input.value.toLowerCase();
+                let filtered = [];
+                if (type === 'airport') {
+                    filtered = data.filter(item => 
+                        item.code.toLowerCase().includes(val) || 
+                        item.city.toLowerCase().includes(val)
+                    );
+                } else {
+                    filtered = data.filter(item => item.toLowerCase().includes(val));
+                }
+                renderList(filtered, input, box, type);
+                box.style.display = 'block';
+                
+                // Trigger dynamic search on input
+                debouncedLoad();
+            });
+        }
+
+        function renderList(list, input, box, type) {
+            box.innerHTML = '';
+            if(list.length === 0) {
+                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches</div>';
+                return;
+            }
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                if (type === 'airport') {
+                    div.textContent = `${item.city} (${item.code})`;
+                    div.onclick = () => {
+                        input.value = item.code;
+                        box.style.display = 'none';
+                        loadTransactions();
+                    };
+                } else {
+                    div.textContent = item;
+                    div.onclick = () => {
+                        input.value = item;
+                        box.style.display = 'none';
+                        loadTransactions();
+                    };
+                }
+                box.appendChild(div);
+            });
+        }
+
+        // 2. Dynamic Search Logic
+        function loadTransactions() {
+            const params = new URLSearchParams();
+            if (originInput.value) params.append('origin', originInput.value);
+            if (destInput.value) params.append('destination', destInput.value);
+            if (emailInput.value) params.append('customer_email', emailInput.value);
+            if (startDateInput.value) params.append('start_date', startDateInput.value);
+            if (endDateInput.value) params.append('end_date', endDateInput.value);
+
+            fetch(`{{ url_for('agent.api_agent_transactions') }}?${params.toString()}`)
+                .then(res => res.json())
+                .then(data => {
+                    renderTable(data);
+                })
+                .catch(err => {
+                    console.error(err);
+                    resultsArea.innerHTML = '<p style="color:red">Error loading data.</p>';
+                });
+        }
+
+        function renderTable(transactions) {
+            resultsArea.innerHTML = '';
+            if (transactions.length === 0) {
+                resultsArea.innerHTML = '<p style="text-align:center; color:#777; padding:20px;">No transactions found.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'flight-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Ticket ID</th>
+                        <th>Customer</th>
+                        <th>Purchase Date</th>
+                        <th>Flight</th>
+                        <th>Route</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            
+            const tbody = table.querySelector('tbody');
+            transactions.forEach(t => {
+                const depDisplay = t.dep_city ? `${t.dep_city} (${t.departure_airport})` : t.departure_airport;
+                const arrDisplay = t.arr_city ? `${t.arr_city} (${t.arrival_airport})` : t.arrival_airport;
+                const statusClass = 'status-' + t.status.toLowerCase().replace(' ', '-');
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${t.ticket_ID}</td>
+                    <td>${t.customer_email}</td>
+                    <td>${t.purchase_date}</td>
+                    <td>${t.airline_name} ${t.flight_number}</td>
+                    <td>${depDisplay} &rarr; ${arrDisplay}</td>
+                    <td style="font-weight:bold; color:green;">$${t.price}</td>
+                    <td><span class="status-badge ${statusClass}">${t.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            resultsArea.appendChild(table);
+        }
+
+        // Debounce for typing
+        let timeout;
+        const debouncedLoad = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(loadTransactions, 300);
+        };
+
+        // Event Listeners
+        // Inputs are already handled in setupAutocomplete for 'input' event
+        // But dates need explicit listeners
+        startDateInput.addEventListener('change', loadTransactions);
+        endDateInput.addEventListener('change', loadTransactions);
+        
+        // Button listener
+        filterBtn.addEventListener('click', loadTransactions);
+
+        // Initial Load
+        loadTransactions();
+    });
+</script>
+{% endblock %}

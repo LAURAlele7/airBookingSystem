@@ -1,67 +1,277 @@
 {% extends "base.html" %}
 
-{% block title %}Booking Agent Dashboard{% endblock %}
+{% block title %}Agent Dashboard{% endblock %}
 
 {% block head_extra %}
 <style>
-    /* 专门针对仪表板结果的样式 */
-    .no-flights {
-        text-align: center;
-        padding: 50px;
-        color: #666;
-        font-style: italic;
+    .dashboard-container { padding: 20px; }
+
+    /* Layout: Flex container */
+    .dashboard-content {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        margin-bottom: 40px;
     }
-    
-    /* 注意：大部分表格和状态样式已在 base.html 中定义 */
+
+    /* Left Column: Search Form */
+    .search-column {
+        flex: 0 0 300px;
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+
+    /* Right Column: Dynamic Results */
+    .results-column {
+        flex: 1;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        min-height: 400px;
+    }
+
+    /* Form Elements */
+    .form-group { margin-bottom: 15px; position: relative; }
+    .form-group label { font-weight: bold; margin-bottom: 5px; display: block; color: #555; }
+    .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+
+    /* Suggestion Box */
+    .suggestion-box {
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: white; border: 1px solid #ddd; border-top: none;
+        z-index: 1000; max-height: 200px; overflow-y: auto; display: none;
+    }
+    .suggestion-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .suggestion-item:hover { background-color: #f0f0f0; }
+
+    /* Table Styles */
+    .flight-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .flight-table th, .flight-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .flight-table th { background-color: #007bff; color: white; font-weight: bold; }
+
+    /* Purchase Form in Table */
+    .purchase-cell { display: flex; gap: 5px; align-items: center; }
+    .purchase-cell input { width: 150px; padding: 6px; font-size: 0.9em; }
+    .purchase-btn { padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .purchase-btn:hover { background-color: #218838; }
+
+    h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+
+    /* Search Button Style */
+    .search-btn {
+        width: 100%;
+        padding: 10px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    .search-btn:hover {
+        background-color: #218838;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="dashboard-container">
+    <h2>Agent Dashboard</h2>
+    <p>Authorized Airlines: <strong>{{ allowed_airlines | join(', ') }}</strong></p>
+    
+    <div class="dashboard-content">
+        <!-- LEFT: Search Form -->
+        <div class="search-column">
+            <h3>Search Flights</h3>
+            <form id="searchForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label>From</label>
+                    <input type="text" id="originInput" placeholder="City or Airport" autocomplete="off">
+                    <div id="originSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>To</label>
+                    <input type="text" id="destInput" placeholder="City or Airport" autocomplete="off">
+                    <div id="destSuggestions" class="suggestion-box"></div>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="dateInput">
+                </div>
+                <!-- Added Search Button -->
+                <button type="button" id="searchBtn" class="search-btn">Search Flights</button>
+            </form>
+        </div>
 
-    <h2>Recent Purchased Flights for Customers</h2>
-    <p>Showing the 20 most recently purchased tickets by you for your customers.</p>
+        <!-- RIGHT: Dynamic Results -->
+        <div class="results-column">
+            <h3>Available Flights</h3>
+            <div id="searchResultsArea">
+                <p style="color: #777; margin-top: 20px;">Loading available flights...</p>
+            </div>
+        </div>
+    </div>
 
-    {% if flights %}
-    <table>
-        <thead>
-            <tr>
-                <th>Ticket ID</th>
-                <th>Customer Email</th>
-                <th>Purchase Date</th>
-                <th>Flight No.</th>
-                <th>Airline</th>
-                <th>Departure</th>
-                <th>Arrival</th>
-                <th>Departure Time</th>
-                <th>Status</th>
-                <th>Price ($)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for flight in flights %}
-            <tr>
-                <td>{{ flight.ticket_ID }}</td>
-                <td>{{ flight.customer_email }}</td>
-                <td>{{ flight.purchase_date | datetimeformat }}</td>
-                <td>{{ flight.flight_number }}</td>
-                <td>{{ flight.airline_name }}</td>
-                <td>{{ flight.departure_airport }}</td>
-                <td>{{ flight.arrival_airport }}</td>
-                <td>{{ flight.departure_time | datetimeformat }}</td>
-                <td>
-                    <span class="status-badge status-{{ flight.status | lower | replace(' ', '-') }}">
-                        {{ flight.status }}
-                    </span>
-                </td>
-                <td>{{ "{:,.2f}".format(flight.price) }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="no-flights">
-        No recent flight purchases found. Start booking tickets for your customers!
-    </p>
-    {% endif %}
+    <hr>
+</div>
 
-    {% endblock %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const originInput = document.getElementById('originInput');
+        const destInput = document.getElementById('destInput');
+        const dateInput = document.getElementById('dateInput');
+        const originBox = document.getElementById('originSuggestions');
+        const destBox = document.getElementById('destSuggestions');
+        const resultsArea = document.getElementById('searchResultsArea');
+        const searchBtn = document.getElementById('searchBtn'); // Get button reference
+
+        // Utility: Debounce
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // 1. Setup Autocomplete (Reuse public API for airport list)
+        fetch("{{ url_for('agent.get_agent_airports') }}")
+            .then(res => res.json())
+            .then(data => {
+                setupAutocomplete(originInput, originBox, data.origins);
+                setupAutocomplete(destInput, destBox, data.destinations);
+            });
+
+        function setupAutocomplete(input, box, data) {
+            input.addEventListener('focus', () => {
+                renderList(data, input, box);
+                box.style.display = 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !box.contains(e.target)) {
+                    box.style.display = 'none';
+                }
+            });
+            input.addEventListener('input', () => {
+                const val = input.value.toLowerCase();
+                const filtered = data.filter(item => 
+                    item.code.toLowerCase().includes(val) || 
+                    item.city.toLowerCase().includes(val)
+                );
+                renderList(filtered, input, box);
+                box.style.display = 'block';
+            });
+        }
+
+        function renderList(list, input, box) {
+            box.innerHTML = '';
+            if(list.length === 0) {
+                box.innerHTML = '<div class="suggestion-item" style="color:#999;">No matches</div>';
+                return;
+            }
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = `${item.city} (${item.code})`;
+                div.onclick = () => {
+                    input.value = item.code;
+                    box.style.display = 'none';
+                    loadFlights(); // Trigger search
+                };
+                box.appendChild(div);
+            });
+        }
+
+        // 2. Load Flights
+        function loadFlights() {
+            const origin = originInput.value.trim();
+            const destination = destInput.value.trim();
+            const date = dateInput.value;
+
+            const params = new URLSearchParams();
+            if (origin) params.append('origin', origin);
+            if (destination) params.append('destination', destination);
+            if (date) params.append('date', date);
+
+            fetch(`{{ url_for('agent.search_flights_api') }}?${params.toString()}`)
+                .then(res => res.json())
+                .then(flights => {
+                    renderResults(flights);
+                })
+                .catch(err => {
+                    console.error(err);
+                    resultsArea.innerHTML = `<p style="color: red;">Error loading flights.</p>`;
+                });
+        }
+
+        const debouncedSearch = debounce(loadFlights, 300);
+        originInput.addEventListener('input', debouncedSearch);
+        destInput.addEventListener('input', debouncedSearch);
+        dateInput.addEventListener('change', loadFlights);
+        
+        // Attach click listener to the button
+        searchBtn.addEventListener('click', loadFlights);
+
+        // Initial load
+        loadFlights();
+
+        function renderResults(flights) {
+            resultsArea.innerHTML = '';
+            if (flights.length === 0) {
+                resultsArea.innerHTML = '<p>No flights found matching your criteria (restricted to your airlines).</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'flight-table';
+            
+            const thead = `
+                <thead>
+                    <tr>
+                        <th>Airline</th>
+                        <th>Flight</th>
+                        <th>Route</th>
+                        <th>Time</th>
+                        <th>Price</th>
+                        <th>Seats</th>
+                        <th>Purchase for Customer</th>
+                    </tr>
+                </thead>
+            `;
+            table.innerHTML = thead;
+            
+            const tbody = document.createElement('tbody');
+
+            flights.forEach(f => {
+                const depDisplay = f.dep_city ? `${f.dep_city} (${f.departure_airport})` : f.departure_airport;
+                const arrDisplay = f.arr_city ? `${f.arr_city} (${f.arrival_airport})` : f.arrival_airport;
+
+                // Construct URL for the new booking page
+                const bookUrl = "{{ url_for('agent.book_ticket') }}?airline=" + encodeURIComponent(f.airline_name) + "&flight_number=" + encodeURIComponent(f.flight_number);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${f.airline_name}</td>
+                    <td>${f.flight_number}</td>
+                    <td>${depDisplay} &rarr; ${arrDisplay}</td>
+                    <td>${f.departure_time}</td>
+                    <td style="font-weight:bold; color:green;">$${f.price}</td>
+                    <td>${f.remaining_seats}</td>
+                    <td>
+                        <a href="${bookUrl}" style="display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.9em;">Book for Customer</a>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            resultsArea.appendChild(table);
+        }
+    });
+</script>
+{% endblock %}

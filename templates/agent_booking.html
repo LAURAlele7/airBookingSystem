@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Agent - Confirm Purchase{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 40px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+    <h2>Confirm Purchase for Customer</h2>
+    <p>Please review the flight details and enter the customer's email.</p>
+    <hr>
+    
+    <div style="margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 4px;">
+        <p><strong>Airline:</strong> {{ flight.airline_name }}</p>
+        <p><strong>Flight Number:</strong> {{ flight.flight_number }}</p>
+        <p><strong>Route:</strong> 
+            {% if flight.dep_city %}{{ flight.dep_city }} ({{ flight.departure_airport }}){% else %}{{ flight.departure_airport }}{% endif %}
+            &rarr; 
+            {% if flight.arr_city %}{{ flight.arr_city }} ({{ flight.arrival_airport }}){% else %}{{ flight.arrival_airport }}{% endif %}
+        </p>
+        <p><strong>Departure Time:</strong> {{ flight.departure_time }}</p>
+        <p><strong>Arrival Time:</strong> {{ flight.arrival_time }}</p>
+        <p><strong>Price:</strong> <span style="color: green; font-weight: bold; font-size: 1.2em;">${{ flight.price }}</span></p>
+        <p><strong>Seats Remaining:</strong> {{ flight.remaining_seats }}</p>
+    </div>
+
+    <form method="post" action="{{ url_for('agent.purchase') }}">
+        <input type="hidden" name="airline_name" value="{{ flight.airline_name }}">
+        <input type="hidden" name="flight_number" value="{{ flight.flight_number }}">
+        
+        <div class="form-group" style="margin-bottom: 25px;">
+            <label for="customer_email" style="font-weight: bold; display: block; margin-bottom: 8px; color: #333;">Customer Email:</label>
+            <input type="email" name="customer_email" id="customer_email" required placeholder="Enter customer's email address" 
+                   style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; box-sizing: border-box;">
+            <small style="color: #666;">Ensure the customer is already registered in the system.</small>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" style="flex: 1; background: #28a745; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 1em; font-weight: bold;">Confirm Purchase</button>
+            <a href="{{ url_for('agent.dashboard') }}" style="flex: 1; text-align: center; padding: 12px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #333;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
