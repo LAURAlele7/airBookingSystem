@@ -242,9 +242,6 @@ INSERT INTO purchases VALUES ("alice@test.com", "agent_a@test.com", "T0000000000
 INSERT INTO purchases VALUES ("diana@test.com", "agent_b@test.com", "T000000000000005", DATE_SUB(CURDATE(), INTERVAL 8 MONTH));
 INSERT INTO purchases VALUES ("bob@test.com",   "agent_b@test.com", "T000000000000006", DATE_SUB(CURDATE(), INTERVAL 11 MONTH));
 INSERT INTO purchases VALUES ("alice@test.com", "agent_b@test.com", "9999000011112222", DATE_SUB(CURDATE(), INTERVAL 7 DAY));
-INSERT INTO purchases VALUES ("charlie@test.com", "agent_b@test.com", "T000000000000015", DATE_SUB(CURDATE(), INTERVAL 40 DAY));
-INSERT INTO purchases VALUES ("diana@test.com", "agent_b@test.com", "T000000000000016", DATE_SUB(CURDATE(), INTERVAL 50 DAY));
-
 
 -- inserting staff
 INSERT INTO staff VALUES("admin_delta", "admin123", "John", "Smith", "1980-05-15", "Delta");

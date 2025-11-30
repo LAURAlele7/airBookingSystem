@@ -27,10 +27,25 @@ def register():
 
         try:
             if role == "customer":
-                # ...existing code...
                 name = request.form.get("name", "").strip()
-                if not name:
-                    flash("Name is required for customer.", "error")
+                building_number_str = request.form.get("building_number", "").strip()
+                street = request.form.get("street", "").strip()
+                city = request.form.get("city", "").strip()
+                state = request.form.get("state", "").strip()
+                phone_number = request.form.get("phone_number", "").strip()
+                passport_expiration_date = request.form.get("passport_expiration_date", "").strip()
+                passport_country = request.form.get("passport_country", "").strip()
+                date_of_birth = request.form.get("date_of_birth", "").strip()
+                
+                if not all([name, building_number_str, street, city, state, phone_number, passport_expiration_date, passport_country, date_of_birth]):
+                    flash("All customer-specific fields are required.", "error")
+                    return render_template("register.html", airlines=airlines)
+                
+                try:
+                    # 转换 building_number 为整数
+                    building_number = int(building_number_str)
+                except ValueError:
+                    flash("Building number must be a valid integer.", "error")
                     return render_template("register.html", airlines=airlines)
 
                 existing = query_one("SELECT * FROM customer WHERE email=%s", (email_or_username,))
@@ -43,9 +58,10 @@ def register():
                     INSERT INTO customer
                     (email, password, name, building_number, street, city, state,
                      phone_number, passport_expiration_date, passport_country, date_of_birth)
-                    VALUES (%s, %s, %s, 0, '', '', '', '0000000000', '2099-12-31', 'N/A', '2000-01-01')
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
-                    (email_or_username, password_hash, name),
+                    (email_or_username, password_hash, name, building_number, street, city, state,
+                     phone_number, passport_expiration_date, passport_country, date_of_birth),
                 )
 
             elif role == "agent":
