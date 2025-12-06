@@ -43,53 +43,54 @@ This section provides a detailed overview of the project's file structure and th
 
 ## Register
 1. Customer
-
-   """
-                    INSERT INTO customer
-                    (email, password, name, building_number, street, city, state,
-                     phone_number, passport_expiration_date, passport_country, date_of_birth)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (email_or_username, password_hash, name, building_number, street, city, state,
-                     phone_number, passport_expiration_date, passport_country, date_of_birth)
-                     
+   ```
+     INSERT INTO customer
+     (email, password, name, building_number, street, city, state,
+      phone_number, passport_expiration_date, passport_country, date_of_birth)
+     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+   ```               
 3. Staff
-
 - Staff Account
 
-  """
-                    INSERT INTO staff
-                    (username, password, first_name, last_name, date_of_birth, airline_name)
-                    VALUES (%s, %s, %s, %s, '1990-01-01', %s)
-                    """,
-                    (email_or_username, password_hash, first_name, last_name, airline_name)
-
+  ```
+     INSERT INTO staff
+     (username, password, first_name, last_name, date_of_birth, airline_name)
+     VALUES (%s, %s, %s, %s, '1990-01-01', %s)
+  ```
 - Staff Permission: Admin/Operator
 
-  "INSERT INTO permission (username, permission_type) VALUES (%s, %s)", (email_or_username, permission_type)
-  
+   ```
+     INSERT INTO permission (username, permission_type) VALUES (%s, %s)
+   ```
 3. Agent
 
-   "INSERT INTO booking_agent (email, password) VALUES (%s, %s)",
-                    (email_or_username, password_hash)
+   ```
+      INSERT INTO booking_agent (email, password) VALUES (%s, %s)
+   ```
 
 ## Login
 1. Customer
-   "SELECT * FROM customer WHERE email=%s", (email_or_username,)
-
+   ```
+      SELECT * FROM customer WHERE email=%s
+   ```
 2. Staff
 - Get Password:   
-   "SELECT * FROM staff WHERE username=%s", (email_or_username,)
-
+   ```
+      SELECT * FROM staff WHERE username=%s
+   ```
 - Get Permission:   
-  "SELECT permission_type FROM permission WHERE username=%s", (username,)
-
+   ```
+      SELECT permission_type FROM permission WHERE username=%s
+   ```
 3. Agent
-   "SELECT * FROM booking_agent WHERE email=%s", (email_or_username,)
+   ```
+      SELECT * FROM booking_agent WHERE email=%s
+   ```
 
 ## Customer Extra
 1. Upcoming Flight
   
-   """
+   ```
         SELECT f.*, t.ticket_ID, p.purchase_date,
                dep.city as dep_city, 
                arr.city as arr_city
@@ -100,24 +101,53 @@ This section provides a detailed overview of the project's file structure and th
         LEFT JOIN airport arr ON f.arrival_airport = arr.name
         WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed')
         ORDER BY f.departure_time ASC
-    """
-
+    ```
 2. Search Flight
-
-   """
-    SELECT f.*, 
-           dep.city as dep_city, 
-           arr.city as arr_city,
-           ap.seat_capacity,
-           (SELECT COUNT(*) FROM ticket t WHERE t.airline_name = f.airline_name AND t.flight_number = f.flight_number) as sold_cnt
+   ```
+       SELECT f.*, 
+              dep.city as dep_city, 
+              arr.city as arr_city,
+              ap.seat_capacity,
+              (SELECT COUNT(*) FROM ticket t WHERE t.airline_name = f.airline_name AND t.flight_number = f.flight_number) as sold_cnt
+           FROM flight f
+           LEFT JOIN airport dep ON f.departure_airport = dep.name
+           LEFT JOIN airport arr ON f.arrival_airport = arr.name
+           LEFT JOIN airplane ap ON f.airplane_assigned = ap.airplane_id AND f.airline_name = ap.airline_name
+           WHERE "f.status = 'upcoming' AND f.departure_time > NOW()" AND
+                  (f.departure_airport = %s OR dep.city LIKE %s) AND
+                  f.arrival_airport = %s OR arr.city LIKE %s AND
+                  DATE(f.departure_time) = %s
+           ORDER BY f.departure_time ASC
+   ```
+3. Show Available Airports
+   - Departure
+      ```
+         SELECT DISTINCT f.departure_airport as code, a.city
         FROM flight f
-        LEFT JOIN airport dep ON f.departure_airport = dep.name
-        LEFT JOIN airport arr ON f.arrival_airport = arr.name
-        LEFT JOIN airplane ap ON f.airplane_assigned = ap.airplane_id AND f.airline_name = ap.airline_name
-        WHERE "f.status = 'upcoming' AND f.departure_time > NOW()" AND
-               (f.departure_airport = %s OR dep.city LIKE %s) AND
-               
-        ORDER BY f.departure_time ASC
-        LIMIT 50
-    """
+        JOIN airport a ON f.departure_airport = a.name
+        WHERE f.status = 'upcoming' AND f.departure_time > NOW()
+        ORDER BY a.city
+      ```
+   - Arrival
+     ```
+        SELECT DISTINCT f.arrival_airport as code, a.city
+        FROM flight f
+        JOIN airport a ON f.arrival_airport = a.name
+        WHERE f.status = 'upcoming' AND f.departure_time > NOW()
+        ORDER BY a.city
+     ```
+4. Show Purchased Filghts
+   ```
+      SELECT f.*, t.ticket_ID, p.purchase_date
+            FROM purchases p
+            JOIN ticket t ON p.ticket_ID = t.ticket_ID
+            JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+            WHERE p.customer_email=%s AND
+                  DATE(f.departure_time) >= %s AND
+                  DATE(f.departure_time) <= %s AND
+                  f.departure_airport=%s AND
+                  f.arrival_airport=%s
+            ORDER BY f.departure_time DESC
+   ```
+5. Book Ticket
 # Contribution Summary
