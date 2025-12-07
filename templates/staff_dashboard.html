@@ -157,7 +157,7 @@
                 </div>
                 <!-- Removed Apply Button, added Reset -->
                 <div class="form-group" style="text-align: center; margin-top: 10px;">
-                    <button type="button" onclick="resetFilters()" class="btn-action" style="background-color: #6c757d; font-size: 0.8em; width: 100%;">Reset Filters</button>
+                    <button type="button" id="resetButton" class="btn-action" style="background-color: #6c757d; font-size: 0.8em; width: 100%;">Reset Filters</button>
                 </div>
             </form>
         </div>
@@ -364,6 +364,20 @@
             });
         }
 
+        // ----------- Reset Filters (保持在内部) -----------
+        function resetFilters() {
+            document.getElementById('originInput').value = '';
+            document.getElementById('destInput').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            fetchFlights(); // 这里的 fetchFlights 是可见的
+        }
+
+        const resetButton = document.getElementById("resetButton");
+        if (resetButton) {
+            resetButton.addEventListener("click", resetFilters);
+        }
+        
         // Initial load
         fetchFlights();
     });
