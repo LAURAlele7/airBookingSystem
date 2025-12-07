@@ -5,7 +5,7 @@ This section provides a detailed overview of the project's file structure and th
 | File Name |	Path |	Description |
 |-----:|-----------| ------------------------------------------- |
 | app.py	| Root	| Main Application Entry Point. Initializes the Flask application, registers all Blueprints (handlers), and sets up the application's configuration.
-| .env	| Root	| Environment variables file. Used to store configuration secrets like database credentials, host information, and SECRET_KEY. (Ignored by Git)
+| .env	| Root	| Environment variables file. Used to store configuration secrets.
 | .gitignore	| Root	| Specifies files and directories that should be excluded from Git version control.
 | requirements.txt	| Root	| Lists all Python dependencies and their exact versions required for the project to run.
 
