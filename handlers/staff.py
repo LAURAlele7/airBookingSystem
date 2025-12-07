@@ -372,11 +372,11 @@ def add_flight():
                         INSERT INTO flight
                         (flight_number, airline_name, departure_airport, arrival_airport,
                          departure_time, arrival_time, price, status, airplane_assigned, remaining_seats)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NULL)
                         """,
                         (
                             flight_number, airline_name, departure_airport, arrival_airport,
-                            departure_time, arrival_time, price, status, airplane_assigned, initial_seats,
+                            departure_time, arrival_time, price, status, airplane_assigned,
                         ),
                     )
                     flash("Flight created.")
