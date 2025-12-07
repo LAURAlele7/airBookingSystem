@@ -483,4 +483,16 @@ This section provides a detailed overview of the project's file structure and th
      ```
         UPDATE flight SET status=%s WHERE airline_name=%s AND flight_number=%s
      ```
+     
 # Contribution Summary
+## Leran Zhang (lz2879)
+- Built the application framework and established the basic Python file structure and modules, laying the groundwork for future functional areas.
+- Detailed and finalized the authentication, customer and agent logic and corresponding HTML files.
+- Added add_flight_capacity_trigger
+- Complete Deliverables
+  
+## Liu Jinting (jl13148)
+- Detailed and finalized the customer, agent, staff and public logic and corresponding HTML files.
+- Polished and refined HTML templates across the application.
+- Implemented the required city alias twist.
+- Executed test cases to ensure the correctness and stability
