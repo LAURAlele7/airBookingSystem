@@ -66,11 +66,11 @@ def transactions():
         sql += " AND DATE(p.purchase_date) <= %s"
         params.append(end_date)
     if origin:
-        sql += " AND (f.departure_airport LIKE %s OR da.city LIKE %s)"
-        params.extend([f"%{origin}%", f"%{origin}%"])
+        sql += " AND (f.departure_airport LIKE %s OR da.city LIKE %s OR da.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s))"
+        params.extend([f"%{origin}%", f"%{origin}%", origin])
     if destination:
-        sql += " AND (f.arrival_airport LIKE %s OR aa.city LIKE %s)"
-        params.extend([f"%{destination}%", f"%{destination}%"])
+        sql += " AND (f.arrival_airport LIKE %s OR aa.city LIKE %s OR aa.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s))"
+        params.extend([f"%{destination}%", f"%{destination}%", destination])
     if customer_email:
         sql += " AND p.customer_email LIKE %s"
         params.append(f"%{customer_email}%")
