@@ -110,13 +110,13 @@ def check_status_api():
     flight_num = request.args.get("flight_number", "").strip()
     date = request.args.get("date", "").strip()
 
-    # Base query for active flights (in-progress or delayed)
+    # Base query for active flights
     sql = """
         SELECT f.*, da.city AS dep_city, aa.city AS arr_city
         FROM flight f
         JOIN airport da ON f.departure_airport = da.name
         JOIN airport aa ON f.arrival_airport = aa.name
-        WHERE f.status IN ('in-progress', 'delayed')
+        WHERE f.status IN ('in-progress', 'delayed', 'upcoming')
     """
     params = []
 
