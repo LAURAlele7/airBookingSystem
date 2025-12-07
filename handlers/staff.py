@@ -627,11 +627,11 @@ def search_flights_api():
             pass
 
     if origin:
-        conditions.append("(f.departure_airport LIKE %s OR da.city LIKE %s)")
-        params.extend([f"%{origin}%", f"%{origin}%"])
+        conditions.append("(f.departure_airport LIKE %s OR da.city LIKE %s OR da.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s))")
+        params.extend([f"%{origin}%", f"%{origin}%", origin])
     if dest:
-        conditions.append("(f.arrival_airport LIKE %s OR aa.city LIKE %s)")
-        params.extend([f"%{dest}%", f"%{dest}%"])
+        conditions.append("(f.arrival_airport LIKE %s OR aa.city LIKE %s OR aa.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s))")
+        params.extend([f"%{dest}%", f"%{dest}%", dest])
         
     where_clause = " AND ".join(conditions)
     

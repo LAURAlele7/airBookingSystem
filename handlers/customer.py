@@ -53,12 +53,12 @@ def search_flights_api():
     params = []
 
     if origin:
-        conditions.append("(f.departure_airport = %s OR dep.city LIKE %s)")
-        params.extend([origin, f"%{origin}%"])
+        conditions.append("(f.departure_airport = %s OR dep.city LIKE %s OR dep.city IN (select ca.city_name from city_alias ca where ca.alias_name= %s))")
+        params.extend([origin, f"%{origin}%", origin])
     
     if destination:
-        conditions.append("(f.arrival_airport = %s OR arr.city LIKE %s)")
-        params.extend([destination, f"%{destination}%"])
+        conditions.append("(f.arrival_airport = %s OR arr.city LIKE %s OR arr.city IN (select ca.city_name from city_alias ca where ca.alias_name= %s))")
+        params.extend([destination, f"%{destination}%", destination])
     
     if date:
         conditions.append("DATE(f.departure_time) = %s")
@@ -253,28 +253,20 @@ def book_ticket():
 
 def check_capacity(airline_name, flight_number):
     """
-    检查 flight 剩余座位
+    检查 flight 剩余座位，直接使用 flight 表中的 remaining_seats 字段。
     """
-    sql_airplane = """
-        SELECT a.seat_capacity
-        FROM flight f
-        JOIN airplane a ON f.airplane_assigned = a.airplane_id
-            AND f.airline_name = a.airline_name
-        WHERE f.airline_name=%s AND f.flight_number=%s
+    sql_remaining = """
+        SELECT remaining_seats
+        FROM flight
+        WHERE airline_name=%s AND flight_number=%s
     """
-    row = query_one(sql_airplane, (airline_name, flight_number))
+    
+    row = query_one(sql_remaining, (airline_name, flight_number))
+    
     if not row:
         return False, "Flight not found."
-    capacity = row["seat_capacity"]
-
-    sql_sold = """
-        SELECT COUNT(*) AS cnt
-        FROM ticket t
-        WHERE t.airline_name=%s AND t.flight_number=%s
-    """
-    sold = query_one(sql_sold, (airline_name, flight_number))["cnt"]
-
-    if sold >= capacity:
+    remaining_seats = row["remaining_seats"]
+    if remaining_seats <= 0:
         return False, "No available seats."
     return True, ""
 
@@ -321,6 +313,16 @@ def purchase():
             """,
             (email, ticket_id),
         )
+
+        execute_sql(
+            """
+            UPDATE flight
+            SET remaining_seats = remaining_seats - 1
+            WHERE airline_name=%s AND flight_number=%s AND remaining_seats > 0
+            """,
+            (airline_name, flight_number),
+        )
+
         flash("Ticket purchased successfully.")
     except Exception as e:
         flash(f"Purchase failed: {e}")

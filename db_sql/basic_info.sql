@@ -269,3 +269,7 @@ INSERT INTO work_with VALUES ("agent_a@test.com", "United");
 
 -- Agent B can only book for Southwest
 INSERT INTO work_with VALUES ("agent_b@test.com", "Southwest");
+
+-- inserting city aliases
+INSERT INTO city_alias VALUES("New York", "NYC");
+INSERT INTO city_alias VALUES("Los Angeles", "LA");

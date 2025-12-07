@@ -291,11 +291,11 @@ def search_flights_api():
     params = list(allowed_airlines)
 
     if origin:
-        conditions.append("(f.departure_airport LIKE %s OR da.city LIKE %s)")
-        params.extend([f"%{origin}%", f"%{origin}%"])
+        conditions.append("(f.departure_airport LIKE %s OR da.city LIKE %s OR da.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s))")
+        params.extend([f"%{origin}%", f"%{origin}%", origin])
     if destination:
-        conditions.append("(f.arrival_airport LIKE %s OR aa.city LIKE %s)")
-        params.extend([f"%{destination}%", f"%{destination}%"])
+        conditions.append("(f.arrival_airport LIKE %s OR aa.city LIKE %s OR aa.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s))")
+        params.extend([f"%{destination}%", f"%{destination}%", destination])
     if date:
         conditions.append("DATE(f.departure_time) = %s")
         params.append(date)
