@@ -119,7 +119,7 @@
         <a href="{{ url_for('staff.customer_flights') }}" class="btn-action">Customer History</a>
         <a href="{{ url_for('staff.analytics') }}" class="btn-action">Analytics</a>
         
-        {% if 'Operator' in permissions or 'Admin' in permissions %}
+        {% if 'Operator' in permissions %}
         <a href="{{ url_for('staff.update_status') }}" class="btn-action operator">Update Flight Status</a>
         {% endif %}
 
