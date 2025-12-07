@@ -46,8 +46,7 @@ This section provides a detailed overview of the project's file structure and th
    ```
      INSERT INTO customer
      (email, password, name, building_number, street, city, state,
-      phone_number, passport_expiration_date, passport_country, date_of_birth)
-     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+      phone_number, passport_expiration_date, passport_country, date_of_birth) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
    ```               
 3. Staff
 - Staff Account
@@ -87,46 +86,63 @@ This section provides a detailed overview of the project's file structure and th
       SELECT * FROM booking_agent WHERE email=%s
    ```
 
+## Public
+1. Search
+   ```
+      SELECT f.*, da.city AS dep_city, aa.city AS arr_city
+      FROM flight f
+      JOIN airport da ON f.departure_airport = da.name
+      JOIN airport aa ON f.arrival_airport = aa.name
+      WHERE f.status = 'upcoming' AND f.departure_time > NOW()
+         AND (f.departure_airport LIKE %s OR da.city LIKE %s OR da.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s)
+         AND (f.arrival_airport LIKE %s OR aa.city LIKE %s OR aa.city IN (SELECT ca.city_name FROM city_alias ca WHERE ca.alias_name = %s)
+         AND DATE(f.departure_time) = %s
+         ORDER BY f.departure_time ASC LIMIT 50
+   ```
+2. Check Status
+   ```
+      SELECT f.*, da.city AS dep_city, aa.city AS arr_city
+      FROM flight f
+      JOIN airport da ON f.departure_airport = da.name
+      JOIN airport aa ON f.arrival_airport = aa.name
+      WHERE f.status IN ('in-progress', 'delayed')
 ## Customer Extra
 1. Upcoming Flight
   
    ```
-        SELECT f.*, t.ticket_ID, p.purchase_date,
-               dep.city as dep_city, 
-               arr.city as arr_city
-        FROM purchases p
-        JOIN ticket t ON p.ticket_ID = t.ticket_ID
-        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-        LEFT JOIN airport dep ON f.departure_airport = dep.name
-        LEFT JOIN airport arr ON f.arrival_airport = arr.name
-        WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed')
-        ORDER BY f.departure_time ASC
+     SELECT f.*, t.ticket_ID, p.purchase_date,
+            dep.city as dep_city, 
+            arr.city as arr_city
+     FROM purchases p
+     JOIN ticket t ON p.ticket_ID = t.ticket_ID
+     JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+     LEFT JOIN airport dep ON f.departure_airport = dep.name
+     LEFT JOIN airport arr ON f.arrival_airport = arr.name
+     WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed')
+     ORDER BY f.departure_time ASC
     ```
 2. Search Flight
    ```
-       SELECT f.*, 
-              dep.city as dep_city, 
-              arr.city as arr_city,
-              ap.seat_capacity,
+      SELECT f.*, dep.city as dep_city, arr.city as arr_city, ap.seat_capacity,
               (SELECT COUNT(*) FROM ticket t WHERE t.airline_name = f.airline_name AND t.flight_number = f.flight_number) as sold_cnt
-           FROM flight f
-           LEFT JOIN airport dep ON f.departure_airport = dep.name
-           LEFT JOIN airport arr ON f.arrival_airport = arr.name
-           LEFT JOIN airplane ap ON f.airplane_assigned = ap.airplane_id AND f.airline_name = ap.airline_name
-           WHERE "f.status = 'upcoming' AND f.departure_time > NOW()" AND
-                  (f.departure_airport = %s OR dep.city LIKE %s) AND
-                  f.arrival_airport = %s OR arr.city LIKE %s AND
-                  DATE(f.departure_time) = %s
-           ORDER BY f.departure_time ASC
+      FROM flight f
+      LEFT JOIN airport dep ON f.departure_airport = dep.name
+      LEFT JOIN airport arr ON f.arrival_airport = arr.name
+      LEFT JOIN airplane ap ON f.airplane_assigned = ap.airplane_id AND f.airline_name = ap.airline_name
+      WHERE (f.status = 'upcoming' AND f.departure_time > NOW()) AND
+            (f.departure_airport = %s OR dep.city LIKE %s  OR dep.city IN (select ca.city_name from city_alias ca where ca.alias_name= %s)) AND
+            (f.arrival_airport = %s OR arr.city LIKE %s  OR dep.city IN (select ca.city_name from city_alias ca where ca.alias_name= %s)) AND
+            (DATE(f.departure_time) = %s)
+      ORDER BY f.departure_time ASC
    ```
 3. Show Available Airports
    - Departure
       ```
          SELECT DISTINCT f.departure_airport as code, a.city
-        FROM flight f
-        JOIN airport a ON f.departure_airport = a.name
-        WHERE f.status = 'upcoming' AND f.departure_time > NOW()
-        ORDER BY a.city
+         FROM flight f
+         JOIN airport a ON f.departure_airport = a.name
+         WHERE f.status = 'upcoming' AND f.departure_time > NOW()
+         ORDER BY a.city
       ```
    - Arrival
      ```
@@ -139,15 +155,64 @@ This section provides a detailed overview of the project's file structure and th
 4. Show Purchased Filghts
    ```
       SELECT f.*, t.ticket_ID, p.purchase_date
-            FROM purchases p
+      FROM purchases p
             JOIN ticket t ON p.ticket_ID = t.ticket_ID
             JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-            WHERE p.customer_email=%s AND
-                  DATE(f.departure_time) >= %s AND
-                  DATE(f.departure_time) <= %s AND
-                  f.departure_airport=%s AND
-                  f.arrival_airport=%s
-            ORDER BY f.departure_time DESC
+      WHERE p.customer_email=%s AND
+            DATE(f.departure_time) >= %s AND
+            DATE(f.departure_time) <= %s AND
+            f.departure_airport=%s AND
+            f.arrival_airport=%s
+      ORDER BY f.departure_time DESC
    ```
 5. Book Ticket
+   ```
+      SELECT f.*, dep.city as dep_city, arr.city as arr_city
+      FROM flight f
+      LEFT JOIN airport dep ON f.departure_airport = dep.name
+      LEFT JOIN airport arr ON f.arrival_airport = arr.name
+      WHERE f.airline_name=%s AND f.flight_number=%s
+   ```
+6. Check Seat Capacity
+   ```
+      SELECT remaining_seats
+      FROM flight
+      WHERE airline_name=%s AND flight_number=%s
+   ```
+7. Purchase Ticket
+   - Show Price
+     ```
+        SELECT price FROM flight WHERE airline_name=%s AND flight_number=%s
+     ```
+   - Insert Tikckets and Purchase History
+     ```
+        INSERT INTO ticket (ticket_ID, ticket_price, ticket_status, airline_name, flight_number) VALUES (%s, %s, 'Confirmed', %s, %s);
+        INSERT INTO purchases (customer_email, agent_email, ticket_ID, purchase_date) VALUES (%s, NULL, %s, NOW());
+     ```
+   - Update Remaining Seats
+     ```
+        UPDATE flight
+        SET remaining_seats = remaining_seats - 1
+        WHERE airline_name=%s AND flight_number=%s AND remaining_seats > 0
+     ```
+8. Customer Spending
+   - Total Spending
+     ```
+        SELECT COALESCE(SUM(t.ticket_price), 0) AS total
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        WHERE p.customer_email=%s AND DATE(p.purchase_date) BETWEEN %s AND %s
+     ```
+   - Monthly Spending
+     ```
+        SELECT DATE_FORMAT(p.purchase_date, '%%Y-%%m') AS month, COALESCE(SUM(t.ticket_price), 0) AS total
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        WHERE p.customer_email=%s AND DATE(p.purchase_date) BETWEEN %s AND %s
+        GROUP BY month
+        ORDER BY month
+     ```
+
+      
+        
 # Contribution Summary
