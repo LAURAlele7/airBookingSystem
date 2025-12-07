@@ -347,6 +347,7 @@ def add_flight():
         price = request.form.get("price", "").strip()
         status = request.form.get("status", "upcoming")
         airplane_assigned = request.form.get("airplane_assigned", "").strip()
+        seats_available = request.form.get("seats_available", "").strip()
 
         # Validation: Check if departure and arrival are the same
         if departure_airport and arrival_airport and departure_airport == arrival_airport:
@@ -363,20 +364,34 @@ def add_flight():
             if not airplane:
                 flash(f"Error: Airplane '{airplane_assigned}' not found for this airline.", "error")
             else:
-                # 2. Use capacity as the initial remaining_seats
-                initial_seats = airplane['seat_capacity']
-                
+                # 2. Determine the remaining_seats value
+                # If the user provided a value, use it. Otherwise, pass NULL to the DB,
+                # letting the DB trigger set the airplane's seat_capacity as default.
+                if seats_available:
+                    # Validate and convert user input to integer
+                    try:
+                        remaining_seats_value = int(seats_available)
+                    except ValueError:
+                        flash("Error: Seats Available must be a valid number.", "error")
+                        # Skip the SQL execution and return to the form
+                        flights = query_all("SELECT * FROM flight WHERE airline_name=%s ORDER BY departure_time DESC LIMIT 20", (airline_name,))
+                        return render_template("staff_admin_flight.html", airline_name=airline_name, flights=flights, airports=airports)
+                else:
+                    # Use None if input is empty, which maps to NULL in SQL
+                    # This triggers the database default/trigger logic (using seat_capacity)
+                    remaining_seats_value = None
+            
                 try:
                     execute_sql(
                         """
                         INSERT INTO flight
                         (flight_number, airline_name, departure_airport, arrival_airport,
                          departure_time, arrival_time, price, status, airplane_assigned, remaining_seats)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NULL)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
                         (
                             flight_number, airline_name, departure_airport, arrival_airport,
-                            departure_time, arrival_time, price, status, airplane_assigned,
+                            departure_time, arrival_time, price, status, airplane_assigned, remaining_seats_value
                         ),
                     )
                     flash("Flight created.")
