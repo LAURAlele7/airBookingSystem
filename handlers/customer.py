@@ -96,9 +96,8 @@ def search_flights_api():
                 f['price'] = str(f['price'])
             
             # Calculate available seats
-            cap = f.get('seat_capacity') or 0
-            sold = f.get('sold_cnt') or 0
-            f['available_seats'] = max(0, cap - sold)
+            remaining = f.get('remaining_seats') or 0
+            f['available_seats'] = max(0, remaining)
 
         return jsonify(flights)
     except Exception as e:
@@ -143,43 +142,46 @@ def get_active_airports():
 @login_required(role="customer")
 def flights():
     """
-    过滤已购航班：date range, origin, dest
+    Show purchased flights history.
     """
     email = session.get("user_id")
-    flights = []
-    if request.method == "POST":
-        start_date = request.form.get("start_date", "").strip()
-        end_date = request.form.get("end_date", "").strip()
-        origin = request.form.get("origin", "").strip()
-        destination = request.form.get("destination", "").strip()
+    
+    # Get filter parameters (default to empty if not provided)
+    start_date = request.form.get("start_date", "").strip()
+    end_date = request.form.get("end_date", "").strip()
+    origin = request.form.get("origin", "").strip()
+    destination = request.form.get("destination", "").strip()
 
-        conditions = ["p.customer_email=%s"]
-        params = [email]
+    conditions = ["p.customer_email=%s"]
+    params = [email]
 
-        if start_date:
-            conditions.append("DATE(f.departure_time) >= %s")
-            params.append(start_date)
-        if end_date:
-            conditions.append("DATE(f.departure_time) <= %s")
-            params.append(end_date)
+    # Apply filters if they exist
+    if start_date:
+        conditions.append("DATE(f.departure_time) >= %s")
+        params.append(start_date)
+    if end_date:
+        conditions.append("DATE(f.departure_time) <= %s")
+        params.append(end_date)
 
-        if origin:
-            conditions.append("f.departure_airport=%s")
-            params.append(origin)
-        if destination:
-            conditions.append("f.arrival_airport=%s")
-            params.append(destination)
+    if origin:
+        conditions.append("f.departure_airport=%s")
+        params.append(origin)
+    if destination:
+        conditions.append("f.arrival_airport=%s")
+        params.append(destination)
 
-        where_clause = " AND ".join(conditions)
-        sql = f"""
-            SELECT f.*, t.ticket_ID, p.purchase_date
-            FROM purchases p
-            JOIN ticket t ON p.ticket_ID = t.ticket_ID
-            JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
-            WHERE {where_clause}
-            ORDER BY f.departure_time DESC
-        """
-        flights = query_all(sql, tuple(params))
+    where_clause = " AND ".join(conditions)
+    
+    # Always execute the query
+    sql = f"""
+        SELECT f.*, t.ticket_ID, p.purchase_date
+        FROM purchases p
+        JOIN ticket t ON p.ticket_ID = t.ticket_ID
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
+        WHERE {where_clause}
+        ORDER BY f.departure_time DESC
+    """
+    flights = query_all(sql, tuple(params))
 
     return render_template("customer_flights.html", flights=flights)
 
