@@ -29,7 +29,7 @@ def upcoming_flights():
         JOIN flight f ON t.airline_name = f.airline_name AND t.flight_number = f.flight_number
         LEFT JOIN airport dep ON f.departure_airport = dep.name
         LEFT JOIN airport arr ON f.arrival_airport = arr.name
-        WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed')
+        WHERE p.customer_email=%s AND f.status IN ('upcoming', 'Delayed', 'on-time') AND f.departure_time > NOW()
         ORDER BY f.departure_time ASC
     """
     flights = query_all(sql, (email,))
