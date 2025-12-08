@@ -491,7 +491,7 @@ This section provides a detailed overview of the project's file structure and th
 - Added add_flight_capacity_trigger
 - Complete Deliverables
   
-## Liu Jinting (jl13148)
+## Jinting Liu (jl13148)
 - Detailed and finalized the customer, agent, staff and public logic and corresponding HTML files.
 - Polished and refined HTML templates across the application.
 - Implemented the required city alias twist.
